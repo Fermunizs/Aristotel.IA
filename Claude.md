@@ -1,0 +1,221 @@
+# Claude.md — AristotelIA
+
+> **Fonte única de verdade do projeto.** Toda sessão do Claude Code DEVE ler este arquivo antes de começar qualquer trabalho.
+
+---
+
+## 0. Regras de documentação (OBRIGATÓRIAS — valem para todo projeto da Fernanda)
+
+1. **Claude.md** (este arquivo) — sempre ler no início da sessão. Sempre que a estrutura do projeto mudar (arquivo novo, pasta nova, decisão de arquitetura, comando novo), **atualizar este arquivo na mesma tarefa**.
+2. **Memória.md** — log cronológico. **Toda** alteração, configuração ou decisão feita durante uma sessão é registrada lá, com data (formato `AAAA-MM-DD`).
+3. **Design.md** — tudo de design (tom de voz das mensagens, formatação, emojis, tipografia de eventuais telas). Sempre que o design mudar, atualizar lá.
+4. **Produto.md** — visão de produto: ICP, wedge, features por pilar, arquitetura multiusuário, plano de validação, roadmap, modelo de negócio. Atualizar quando escopo/ICP/roadmap mudarem.
+
+Essa estrutura é global: usar nos outros projetos da Fernanda também.
+
+---
+
+## 1. O que é a AristotelIA
+
+**Aristótel.IA** — "agente de evolução 1%". Um bot de Telegram (t.me/AristotelIA_bot) que age como **treinadora pessoal de alta performance** da Fernanda.
+
+Ciclo que o bot executa:
+
+> dizer o que estudar → fazer pensar → fazer aplicar → registrar → transformar em conteúdo → mostrar evolução
+
+Não é um bot de lembretes. O diferencial é **aprendizado ativo** (perguntas, quizzes, desafios) + **registro de evolução** + **transformar formação em conteúdo de Instagram**.
+
+Contexto da Fernanda: Java na faculdade, JS/Node/n8n no trabalho, quer carreira em engenharia/produto, cria conteúdo. Tom das mensagens: **motivacional mas sincero, sem clichê, sem textão** (ver `Design.md`).
+
+---
+
+## 2. Rotina (horários — America/Sao_Paulo)
+
+| Horário | Função (`src/jobs.py`)      | Tipo         | O que faz |
+|---------|-----------------------------|--------------|-----------|
+| 06:00   | `daily_motivation`          | mentalidade  | 1 frase provocativa sobre disciplina/carreira/futuro. Varia todo dia. |
+| 08:00   | `daily_learning_guide`      | aprendizado  | **Função mais importante.** Diz EXATAMENTE o que estudar hoje, com ação concreta. Puxa o tópico de `data/learning_plan.json`. |
+| 09:00   | `micro_learning`            | consumo      | Pílula de 5–10 min sobre o tópico + 1 pergunta para responder. |
+| 10:30   | `learning_check`            | retenção     | Micro-quiz A/B/C sobre tópico recente. Registra acerto/erro. |
+| 15:00   | `daily_insight`             | engenharia   | Insight fora da sintaxe (arquitetura, banco, carreira, produto, segurança) + pergunta que desenvolve visão de engenheira. |
+| 16:00   | `application_challenge`     | prática      | Desafio de código de 10 min. "Não pesquise antes de tentar." |
+| 20:00   | `daily_review`              | reflexão     | Pergunta 3 linhas (o que aprendi / o que fiz / o que entendi melhor). A resposta vira um card 📈 EVOLUÇÃO e dispara o `content_capture`. |
+
+**Domingo** (`src/weekly.py`):
+
+| Horário | Função              | O que faz |
+|---------|---------------------|-----------|
+| 10:00   | `weekly_review`     | Lê o `daily_log` dos últimos 7 dias → card 📊 SUA SEMANA com maior avanço, ponto fraco (sincero) e foco da próxima semana. |
+| 11:00   | `content_planner`   | Lê `content_bank` + tópicos da semana → sugere 3 peças de conteúdo (carrossel/reel/threads). |
+| 11:05   | `advance_week`      | Avança `learning_plan.current` para a próxima semana. |
+
+Horários centralizados em `src/config.py` (`SCHEDULE`).
+
+---
+
+## 3. Estrutura de arquivos
+
+```
+AristotelIA/
+├── Claude.md                 # este arquivo
+├── Memória.md                # log cronológico
+├── Design.md                 # tom de voz + formatação das mensagens
+├── README.md                 # setup rápido
+├── requirements.txt
+├── .env                      # SEGREDOS (não commitar) — token do bot + chave do LLM
+├── .env.example              # modelo do .env
+├── .gitignore
+├── Dockerfile                # imagem para deploy (Fly.io)
+├── fly.toml                  # config Fly.io
+├── Procfile                  # deploy alternativo (Railway/Render worker)
+├── data/                     # estado persistente (JSON)
+│   ├── learning_plan.json    # trilha de estudo — EDITÁVEL À MÃO
+│   ├── progress.json         # runtime: chat_id, streak, interação pendente
+│   ├── content_bank.json     # banco de ideias de conteúdo
+│   └── daily_log.json        # registros diários de evolução
+└── src/
+    ├── __init__.py
+    ├── main.py               # entrypoint: cria o bot, agenda os jobs, run_polling()
+    ├── config.py             # env vars, timezone, tabela SCHEDULE, modelos do LLM
+    ├── storage.py            # load()/save() dos JSON em data/ + defaults
+    ├── llm.py                # cliente do LLM (Groq/OpenRouter via SDK openai) + fallback
+    ├── prompts.py            # PERSONA + system prompt de cada função
+    ├── jobs.py               # as 7 funções diárias
+    ├── weekly.py             # funções de domingo
+    └── handlers.py           # comandos (/start, /hoje, /jasei, ...) e roteamento de respostas
+```
+
+### Como os arquivos conversam
+
+- `main.py` monta o `Application` do `python-telegram-bot`, registra handlers de `handlers.py` e agenda `jobs.py`/`weekly.py` via `job_queue.run_daily`.
+- Todo job lê o `chat_id` de `data/progress.json` (gravado no `/start`). Se não houver `chat_id`, o job é ignorado.
+- Jobs e handlers chamam `llm.generate(...)` / `llm.generate_json(...)`. Chamada de rede é feita em thread (`asyncio.to_thread`) para não travar o bot.
+- Interações que esperam resposta (quiz, review, captura de conteúdo) gravam `progress["pending"]`; `handlers.on_text` roteia a próxima mensagem de texto conforme `pending["type"]`. Sem `pending`, a mensagem vira conversa livre com a treinadora.
+
+---
+
+## 4. Comandos do bot
+
+| Comando      | Ação |
+|--------------|------|
+| `/start`     | Registra o `chat_id` e manda boas-vindas. **Precisa ser rodado uma vez** para os agendamentos funcionarem. |
+| `/hoje`      | Dispara o guia do dia sob demanda. |
+| `/jasei`     | Marca o tópico atual como dominado e pula para o próximo. |
+| `/skip`      | Pula para o próximo dia sem marcar como dominado. |
+| `/plano`     | Mostra a trilha e onde ela está. |
+| `/status`    | Streak, dia atual, nº de registros. |
+| `/conteudo`  | Abre a captura de ideia de conteúdo manualmente. |
+| texto livre  | Se não houver interação pendente, conversa com a treinadora. |
+
+---
+
+## 5. Configuração / segredos
+
+`.env` (ver `.env.example`):
+
+```
+TELEGRAM_TOKEN=...            # do BotFather
+LLM_PROVIDER=groq             # groq | openrouter
+GROQ_API_KEY=...              # https://console.groq.com/keys  (grátis)
+OPENROUTER_API_KEY=...        # https://openrouter.ai/keys     (grátis, opcional)
+LLM_MODEL=                    # opcional, sobrescreve o modelo padrão do provedor
+TZ=America/Sao_Paulo
+```
+
+Modelos padrão (em `config.py`): Groq → `openai/gpt-oss-120b` (alternativas nesta conta: `qwen/qwen3.8-27b`, `openai/gpt-oss-20b`); OpenRouter → `meta-llama/llama-3.3-70b-instruct:free`.
+Obs.: a conta Groq da Fernanda só expõe alguns modelos (sem Llama 3.3/4). Conferir com `GET /openai/v1/models`.
+
+Se o LLM falhar, `llm.py` usa um fallback local (pool de frases) para o bot nunca ficar mudo.
+
+---
+
+## 6. Rodar
+
+Local:
+
+```
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+copy .env.example .env   # e preencher
+python -m src.main
+```
+
+Depois, no Telegram, mandar `/start` para o bot.
+
+### Deploy — Oracle Cloud (Always Free) — JÁ FEITO
+
+**Onde roda:** VM `aristotelia` na Oracle Cloud, região `sa-saopaulo-1`.
+- Shape **`VM.Standard.E2.1.Micro`** (1 OCPU, 1 GB RAM) — **Always Free**, custo **US$0**.
+- Ubuntu 22.04. IP público: **`147.15.46.51`**. Swap de 1 GB ativo.
+- Rede: VCN `aristotelia-vcn` / subnet `arist-subnet`, security list libera só SSH (22) de entrada.
+- **Nunca clicar em "Upgrade to Pay As You Go"** no painel Oracle — é o que quebraria a garantia de custo zero.
+
+**Serviço:** `systemd` unit `aristotelia.service` (`Restart=always`, `enable`d → sobe no boot).
+Roda `/home/ubuntu/aristotelia/.venv/bin/python -m src.main` em `/home/ubuntu/aristotelia`.
+
+**Acesso SSH** (chave privada em `C:\Users\DELL\.ssh\aristotelia_oracle`):
+
+```powershell
+ssh -i $env:USERPROFILE\.ssh\aristotelia_oracle ubuntu@147.15.46.51
+```
+
+**Comandos no VM:**
+
+```bash
+sudo systemctl status aristotelia
+sudo journalctl -u aristotelia -f -o cat        # logs ao vivo
+sudo systemctl restart aristotelia
+```
+
+**Redeploy depois de mudar código** (rodar na raiz do projeto local, Git Bash):
+
+```bash
+tar czf - --exclude=.venv --exclude=__pycache__ --exclude=.git \
+  --exclude='data/progress.json' --exclude='data/content_bank.json' --exclude='data/daily_log.json' . \
+| ssh -i ~/.ssh/aristotelia_oracle ubuntu@147.15.46.51 'tar xzf - -C ~/aristotelia'
+ssh -i ~/.ssh/aristotelia_oracle ubuntu@147.15.46.51 \
+  '~/aristotelia/.venv/bin/pip install -q -r ~/aristotelia/requirements.txt && sudo systemctl restart aristotelia'
+```
+
+(os 3 `data/*.json` de runtime ficam só no VM — não sobrescrever.)
+
+**O `.env` no VM** está em `/home/ubuntu/aristotelia/.env` (mesmo conteúdo do local).
+
+Fly.io foi usado no dia 30/08 e **descartado** (trial sem cartão = 5 min; conta nova = ~US$2/mês). App `aristotelia-bot` já destruído; revogar o org token `aristotelia-deploy` no painel do Fly se quiser.
+
+---
+
+## 7. Trilha de aprendizagem
+
+`data/learning_plan.json`:
+
+- `current` = `{ "week": N, "day": D }` — onde ela está.
+- `weeks[]` = lista de semanas, cada uma com `theme` e `days[]` (`{ "d", "topic", "goal" }`).
+- `known_topics[]` — tópicos que ela marcou com `/jasei`; o guia do dia pula esses.
+
+Editar à mão é seguro. `advance_week` (domingo) incrementa `current.week`; `daily_learning_guide` incrementa `current.day` (1→5) a cada dia útil.
+
+---
+
+## 8. Decisões tomadas (resumo — detalhe em Memória.md)
+
+- Stack Python (não Node) — ecossistema de IA mais direto; `python-telegram-bot` já traz agendador.
+- LLM **grátis** (Groq/OpenRouter) — sem API paga. Interface via SDK `openai` (compatível com os dois).
+- Persistência em JSON — suficiente para 1 usuária; migrar para SQLite só se necessário.
+- Agendamento via `job_queue` do PTB — evita dependência extra.
+- Jobs semanais são agendados todo dia e checam `weekday()` internamente (evita ambiguidade do parâmetro `days`).
+- **Hospedagem: Oracle Cloud Always Free** (não Fly). Motivo: conta Free Tier da Oracle não pode ser cobrada enquanto não sofrer upgrade pra PAYG — garantia de custo zero, que era prioridade da Fernanda. Fly custaria ~US$2/mês.
+- Modelo Groq: a conta só libera `openai/gpt-oss-120b`, `openai/gpt-oss-20b`, `qwen/qwen3.8-27b`, `groq/compound`, `allam-2-7b`. Usando `gpt-oss-120b` com `reasoning_effort=low`.
+
+---
+
+## 9. Pendências / próximos passos
+
+- [x] Groq no `.env`.
+- [x] Deploy na Oracle Cloud (VM `aristotelia`, systemd, 24/7, custo US$0).
+- [ ] Fernanda: `/start` no bot no Telegram (grava o `chat_id` em `~/aristotelia/data/progress.json` no VM — sem isso os agendamentos não enviam).
+- [ ] Validar cada job no uso real (primeiro ciclo de 24h).
+- [ ] Popular `learning_plan.json` com mais semanas (hoje tem 4).
+- [ ] Ajustar horários/tom depois do primeiro dia real de uso.
+- [ ] (Opcional) trocar modelo para `qwen/qwen3.8-27b` se o PT do gpt-oss não agradar.

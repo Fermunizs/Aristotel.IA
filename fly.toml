@@ -1,0 +1,20 @@
+# Fly.io — bot de polling (sem porta HTTP). Ajuste "app" após `fly launch`.
+app = "aristotelia-bot"
+primary_region = "gru"
+
+[build]
+
+[env]
+  TZ = "America/Sao_Paulo"
+  LLM_PROVIDER = "groq"
+
+# Estado persistente (data/*.json) sobrevive a redeploys.
+# Criar antes: fly volumes create aristotelia_data --size 1 --region gru
+[mounts]
+  source = "aristotelia_data"
+  destination = "/app/data"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
+  cpus = 1
