@@ -229,10 +229,22 @@ Estrutura de config em **3 níveis** (pedido da Fernanda):
 - Sidebar: "Pessoas" pra admin+super, "Ajustar IA" só super. `(app)/layout` passa `role` pro Sidebar.
 - Bot: `_USER_COLS` já traz `plan` (via `u.*`). Token cap segue global (não muda por plano — mensagens de coaching são curtas de propósito).
 
+## 2026-08-31 — BUG em produção: onboarding travava no 1º usuário novo
+
+O namorado da Fernanda (chat 6751488447, objetivo "IA pra geração de vídeos com VFX") deu `/start`, onboarding OK, trilha gerada — mas **`db.create_default_reminders` passava `'06:00'` (str) pro asyncpg num campo `TIME`** → `DataError` → `_finish` abortava depois do `create_plan`. Resultado: `status='onboarding'`, 0 lembretes, `pending` travado no step `tone`, e **cada mensagem seguinte regerava a trilha** (ele acumulou 3 learning_plans).
+
+**Corrigido:**
+- `_DEFAULT_REMINDERS` usa `datetime.time(...)`, não str. (`$3::time` não resolve — asyncpg infere o tipo e recusa a str.)
+- `_finish` **idempotente**: se já existe plano ativo → só `_activate()` (não regenera). `_activate()` extraído.
+- Falha em lembrete/agenda dentro de `_activate` não bloqueia a ativação (try/except + log).
+- Conta do namorado recuperada à mão: 7 lembretes, `active`, agendado, `plan='unlimited'`, 3 planos duplicados apagados.
+- **Aprendizado:** testar o onboarding COMPLETO de um usuário novo antes de anunciar — a Fernanda nunca passou por esse path (os lembretes dela vieram do backfill da migration 0001).
+
 **Ainda por fazer:**
 1. Fase 2 itens 3-4: e-mail · Google Calendar. Trilha adaptativa. Dashboard de evolução completo.
 2. Memória mais longa (a bot lembrar "ontem você travou em X") — hoje só 14 msgs.
 3. Merge `fase-1` → `main` + reescrever `Claude.md`. Nav lateral com 8-9 itens — barra mobile aperta.
+4. Testar o rate limit do Groq com 2+ usuários recebendo mensagem às 8h (o gargalo anotado).
 2. Merge `fase-1` → `main` + reescrever `Claude.md` (arquitetura Fase 1/2 completa).
 3. Domínio próprio → Caddy + named tunnel (URL estável, e a PWA precisa de HTTPS estável pro push não quebrar).
 4. Validação: 20-30 pessoas da beachhead.
