@@ -13,6 +13,11 @@ from .util import ask_json, send_text
 log = logging.getLogger("aristotelia.onboarding")
 
 _LEVELS = {"1": "do zero", "2": "sei o básico", "3": "intermediário, quero aprofundar"}
+_TONES = {"1": "gentil", "2": "equilibrada", "3": "durona"}
+ONB_TONE = (
+    "Última: como você quer que eu te cobre?\n\n"
+    "1 — gentil, no meu ritmo\n2 — equilibrada\n3 — durona, sem passar a mão na cabeça"
+)
 
 
 async def build_trilha(name: str | None, goal: str, level: str, minutes: int) -> list | None:
@@ -39,7 +44,7 @@ async def build_trilha(name: str | None, goal: str, level: str, minutes: int) ->
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE, user) -> None:
     await db.set_pending(user["id"], {"type": "onboarding", "step": "goal", "answers": {}})
     await send_text(context.bot, user["telegram_chat_id"],
-                    "🌅 Bom te ver aqui. Vou montar seu plano em 3 perguntas.\n\n" + prompts.ONB_GOAL)
+                    "🌅 Bom te ver aqui. Vou montar seu plano em 4 perguntas.\n\n" + prompts.ONB_GOAL)
 
 
 async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE, user, pending: dict) -> None:
@@ -61,8 +66,12 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE, user, pendi
 
     elif step == "minutes":
         digits = "".join(c for c in text if c.isdigit())
-        minutes = max(10, min(180, int(digits) if digits else 30))
-        answers["minutes"] = minutes
+        answers["minutes"] = max(10, min(180, int(digits) if digits else 30))
+        await db.set_pending(user["id"], {"type": "onboarding", "step": "tone", "answers": answers})
+        await send_text(context.bot, chat, ONB_TONE)
+
+    elif step == "tone":
+        answers["tone"] = _TONES.get(next((c for c in text if c in "123"), "2"), "equilibrada")
         await _finish(context, user, answers)
 
 
@@ -77,7 +86,8 @@ async def _finish(context: ContextTypes.DEFAULT_TYPE, user, answers: dict) -> No
         return
 
     await db.create_plan(user["id"], answers["goal"], answers["level"], weeks)
-    await db.save_prefs(user["id"], minutes_per_day=answers["minutes"])
+    await db.save_prefs(user["id"], minutes_per_day=answers["minutes"],
+                        coach_tone=answers.get("tone", "equilibrada"))
     await db.create_default_reminders(user["id"])
     await db.set_pending(user["id"], None)
     await db.set_status(user["id"], "active")

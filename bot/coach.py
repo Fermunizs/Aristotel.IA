@@ -39,7 +39,16 @@ async def refresh() -> None:
         log.exception("coach.refresh falhou — mantendo cache")
 
 
-def persona(name: str | None = None, goal: str | None = None) -> str:
+TONE = {
+    "gentil": "Com ESTA pessoa, seja mais gentil e acolhedora — encoraja, celebra o pequeno passo, "
+    "cobra com leveza. Nunca ríspida.",
+    "equilibrada": "Com ESTA pessoa, mantenha o equilíbrio — sincera e firme, mas sem peso.",
+    "durona": "Com ESTA pessoa, seja mais durona e direta — sem rodeio, cobra de verdade, "
+    "aponta a folga na cara. Sem ser grossa, mas sem passar a mão na cabeça.",
+}
+
+
+def persona(name: str | None = None, goal: str | None = None, tone: str | None = None) -> str:
     c = _cache
     s = (
         f"{c['identidade']}\n\n"
@@ -47,6 +56,9 @@ def persona(name: str | None = None, goal: str | None = None) -> str:
         f"TOM: {c['tom']}\n\n"
         f"SEMPRE: {c['sempre']}"
     )
+    t = TONE.get(tone or "")
+    if t:
+        s += f"\n\n{t}"
     if name:
         s += f"\n\nA pessoa se chama {name}."
     if goal:

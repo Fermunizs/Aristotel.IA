@@ -60,11 +60,11 @@ def _j(v: Any) -> Any:
 # ── usuários ─────────────────────────────────────────────────────────
 async def get_or_create_user(chat_id: int, username: str | None, name: str | None) -> asyncpg.Record:
     async with pool().acquire() as con:
-        row = await con.fetchrow("SELECT * FROM users WHERE telegram_chat_id = $1", chat_id)
+        row = await con.fetchrow("SELECT id FROM users WHERE telegram_chat_id = $1", chat_id)
         if row is None:
             row = await con.fetchrow(
                 """INSERT INTO users (telegram_chat_id, telegram_username, name, last_seen_at)
-                   VALUES ($1, $2, $3, now()) RETURNING *""",
+                   VALUES ($1, $2, $3, now()) RETURNING id""",
                 chat_id, username, name,
             )
             await con.execute("INSERT INTO preferences (user_id) VALUES ($1)", row["id"])
@@ -72,17 +72,27 @@ async def get_or_create_user(chat_id: int, username: str | None, name: str | Non
             await con.execute("INSERT INTO bot_state (user_id) VALUES ($1)", row["id"])
         else:
             await con.execute("UPDATE users SET last_seen_at = now() WHERE id = $1", row["id"])
-    return row
+    return await get_user(row["id"])
+
+
+_USER_COLS = "u.*, coalesce(p.coach_tone, 'equilibrada') AS coach_tone"
 
 
 async def get_user(user_id) -> asyncpg.Record | None:
     async with pool().acquire() as con:
-        return await con.fetchrow("SELECT * FROM users WHERE id = $1", user_id)
+        return await con.fetchrow(
+            f"SELECT {_USER_COLS} FROM users u LEFT JOIN preferences p ON p.user_id = u.id WHERE u.id = $1",
+            user_id,
+        )
 
 
 async def user_by_chat(chat_id: int) -> asyncpg.Record | None:
     async with pool().acquire() as con:
-        return await con.fetchrow("SELECT * FROM users WHERE telegram_chat_id = $1", chat_id)
+        return await con.fetchrow(
+            f"SELECT {_USER_COLS} FROM users u LEFT JOIN preferences p ON p.user_id = u.id "
+            "WHERE u.telegram_chat_id = $1",
+            chat_id,
+        )
 
 
 async def set_status(user_id, status: str) -> None:
@@ -93,7 +103,8 @@ async def set_status(user_id, status: str) -> None:
 async def active_users() -> list[asyncpg.Record]:
     async with pool().acquire() as con:
         return await con.fetch(
-            "SELECT * FROM users WHERE status = 'active' AND telegram_chat_id IS NOT NULL"
+            f"SELECT {_USER_COLS} FROM users u LEFT JOIN preferences p ON p.user_id = u.id "
+            "WHERE u.status = 'active' AND u.telegram_chat_id IS NOT NULL"
         )
 
 
