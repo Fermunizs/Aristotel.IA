@@ -142,7 +142,8 @@ async def application_challenge(context: ContextTypes.DEFAULT_TYPE) -> None:
                       prompts.learning_context(plan), temperature=0.8, max_tokens=250)
     await _deliver(context, user, chat, "Desafio de 10 min", f"🛠️ *Desafio de 10 minutos*\n\n{texto}")
     await db.add_task(user["id"], day, "desafio", "Desafio de aplicação do dia", texto[:200])
-    await db.set_pending(user["id"], {"type": "challenge_done"})
+    await db.set_pending(user["id"], {"type": "challenge", "text": texto[:600], "day": str(day)})
+    await db.push_history(user["id"], "assistant", f"[Desafio de hoje] {texto}")
     await db.log_event(user["id"], "msg:challenge", day)
 
 

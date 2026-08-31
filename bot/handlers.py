@@ -143,11 +143,14 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     ptype = pending.get("type")
 
     if ptype == "onboarding":
-        await onboarding.handle(update, context, user, pending)
-    elif ptype == "quiz":
+        return await onboarding.handle(update, context, user, pending)
+
+    await db.push_history(user["id"], "user", text)
+
+    if ptype == "quiz":
         await _quiz(update, user, pending, text)
-    elif ptype == "challenge_done":
-        await _challenge(update, user, text)
+    elif ptype in ("challenge", "challenge_done"):
+        await _challenge(update, user, pending, text)
     elif ptype == "review":
         await _review(update, user, text)
     elif ptype == "content_confirm":
@@ -157,9 +160,14 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     else:
         plan = await db.get_plan(user["id"])
         goal = plan["goal"] if plan else None
-        resp = await ask(prompts.persona(user["name"], goal),
-                         f"A pessoa te mandou: {text}\nResponda como treinadora: direto, sincero, sem textão.",
-                         max_tokens=500)
+        hist = await db.get_history(user["id"])
+        resp = await ask(
+            prompts.persona(user["name"], goal)
+            + "\n\nVocê está numa conversa com a pessoa. Responda direto, sincero, sem textão. "
+            "Use o histórico pra manter o contexto.",
+            text, history=hist[:-1], max_tokens=500,
+        )
+        await db.push_history(user["id"], "assistant", resp)
         await _reply(update, resp)
 
 
@@ -176,12 +184,40 @@ async def _quiz(update: Update, user, pending: dict, text: str) -> None:
     await _reply(update, (f"✅ Isso. {exp}" if acertou else f"❌ Era *{pending.get('correta')}*. {exp}"))
 
 
-async def _challenge(update: Update, user, text: str) -> None:
+_DONE_WORDS = ("terminei", "terminado", "consegui", "feito", "pronto", "acabei", "fiz",
+               "concluí", "conclui", "resolvi", "deu certo", "funcionou")
+
+
+async def _challenge(update: Update, user, pending: dict, text: str) -> None:
     day = now_for(user).date()
-    await db.auto_complete(user["id"], day, "desafio")
-    await db.log_event(user["id"], "desafio", day, {"nota": text[:300]})
-    await db.set_pending(user["id"], None)
-    await _reply(update, "🛠️ Marquei o desafio como feito. Amanhã tem mais.")
+    desafio = pending.get("text", "o desafio de hoje")
+    plan = await db.get_plan(user["id"])
+    goal = plan["goal"] if plan else None
+    hist = await db.get_history(user["id"])
+
+    if any(w in text.lower() for w in _DONE_WORDS):
+        await db.auto_complete(user["id"], day, "desafio")
+        await db.log_event(user["id"], "desafio", day, {"nota": text[:300]})
+        await db.set_pending(user["id"], None)
+        resp = await ask(
+            prompts.persona(user["name"], goal)
+            + f"\n\nO desafio era:\n{desafio}\n\nA pessoa disse que terminou. "
+            "Dê um retorno curto e sincero — se ela colou a solução, comente 1 ponto; se não, só reconheça e provoque a continuar.",
+            text, history=hist, max_tokens=350,
+        )
+        await db.push_history(user["id"], "assistant", resp)
+        return await _reply(update, f"🛠️ {resp}")
+
+    # ainda no desafio: ajuda, sem marcar como feito
+    resp = await ask(
+        prompts.persona(user["name"], goal)
+        + f"\n\nA pessoa está fazendo este desafio AGORA:\n{desafio}\n\n"
+        "Ela te mandou uma mensagem. Se for dúvida, ajude com uma pista — NÃO entregue a solução pronta. "
+        "Se for uma tentativa, dê feedback. Mantenha o desafio em pé. Curto, sem textão.",
+        text, history=hist, max_tokens=450,
+    )
+    await db.push_history(user["id"], "assistant", resp)
+    await _reply(update, resp)
 
 
 async def _review(update: Update, user, text: str) -> None:

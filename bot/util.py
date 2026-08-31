@@ -22,8 +22,8 @@ async def send_text(bot, chat_id: int, text: str) -> None:
         await bot.send_message(chat_id=chat_id, text=text)
 
 
-async def ask(system: str, user: str, *, label: bool = False, **kw) -> str:
-    raw = await asyncio.to_thread(llm.generate, system, user, **kw)
+async def ask(system: str, user: str, *, label: bool = False, history: list | None = None, **kw) -> str:
+    raw = await asyncio.to_thread(lambda: llm.generate(system, user, history=history, **kw))
     return llm.tidy(raw) if label else llm.unlabel(raw)
 
 

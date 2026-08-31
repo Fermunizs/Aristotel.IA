@@ -180,6 +180,26 @@ async def set_pending(user_id, pending: dict | None) -> None:
         )
 
 
+# ── memória curta de conversa ───────────────────────────────────────
+_HISTORY_MAX = 14
+
+
+async def get_history(user_id) -> list[dict]:
+    async with pool().acquire() as con:
+        r = await con.fetchval("SELECT history FROM bot_state WHERE user_id = $1", user_id)
+    return _j(r) or []
+
+
+async def push_history(user_id, role: str, content: str) -> None:
+    hist = await get_history(user_id)
+    hist.append({"role": role, "content": content[:1500]})
+    hist = hist[-_HISTORY_MAX:]
+    async with pool().acquire() as con:
+        await con.execute(
+            "UPDATE bot_state SET history = $2 WHERE user_id = $1", user_id, json.dumps(hist)
+        )
+
+
 # ── eventos / streak ─────────────────────────────────────────────────
 async def log_event(user_id, kind: str, day: date, payload: dict | None = None) -> None:
     async with pool().acquire() as con:

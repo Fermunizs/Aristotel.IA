@@ -89,11 +89,22 @@ def _call(messages: list, temperature: float, max_tokens: int) -> str:
         raise RuntimeError("rate limit persistente")
 
 
-def generate(system: str, user: str, *, temperature: float = 0.8, max_tokens: int = 700) -> str:
+def generate(
+    system: str,
+    user: str,
+    *,
+    history: list[dict] | None = None,
+    temperature: float = 0.8,
+    max_tokens: int = 700,
+) -> str:
     if not config.LLM_API_KEY:
         log.warning("Sem API key do LLM (%s) — usando fallback.", config.LLM_PROVIDER)
         return random.choice(_FALLBACK)
-    msgs = [{"role": "system", "content": system}, {"role": "user", "content": user}]
+    msgs: list[dict] = [{"role": "system", "content": system}]
+    for h in (history or [])[-14:]:
+        if h.get("role") in ("user", "assistant") and h.get("content"):
+            msgs.append({"role": h["role"], "content": h["content"]})
+    msgs.append({"role": "user", "content": user})
     try:
         return _call(msgs, temperature, max_tokens)
     except Exception:  # noqa: BLE001
