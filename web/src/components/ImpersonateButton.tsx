@@ -22,7 +22,7 @@ export function ImpersonateButton({ userId }: { userId: string }) {
     <button
       onClick={go}
       disabled={busy}
-      className="rounded-lg border border-line px-2.5 py-1 text-xs text-muted hover:border-amber hover:text-amber disabled:opacity-40"
+      className="rounded-full border border-line px-2.5 py-1 text-xs text-ink-soft transition hover:border-clay hover:text-clay disabled:opacity-40"
     >
       ver painel
     </button>

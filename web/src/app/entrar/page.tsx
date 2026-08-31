@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Mark, Wordmark } from "@/components/art";
 
 export default function Entrar() {
   const router = useRouter();
@@ -22,18 +23,19 @@ export default function Entrar() {
       router.push("/");
       router.refresh();
     } else {
-      setErr((await res.json()).error ?? "Erro");
+      setErr((await res.json()).error ?? "Não deu.");
       setLoading(false);
     }
   }
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6">
-      <p className="text-2xl font-semibold">
-        Aristótel<span className="text-amber">.IA</span>
-      </p>
-      <p className="mt-1 text-sm text-muted">
-        No Telegram, manda <code className="text-ink">/painel</code> pro bot e digita o código.
+      <div className="flex items-center gap-2 text-ink">
+        <Mark size={30} />
+        <Wordmark className="text-[1.35rem]" />
+      </div>
+      <p className="mt-3 text-sm text-ink-soft">
+        No Telegram, manda <code className="text-ink">/painel</code> pra Aristótel.IA e ela te dá um código.
       </p>
 
       <form onSubmit={submit} className="mt-8 space-y-3">
@@ -43,19 +45,20 @@ export default function Entrar() {
           inputMode="numeric"
           placeholder="000000"
           autoFocus
-          className="card w-full px-4 py-3 text-center text-2xl tracking-[0.4em] outline-none focus:border-amber"
+          className="card w-full px-4 py-4 text-center text-2xl tracking-[0.5em] outline-none focus:border-clay"
+          style={{ fontFamily: "var(--font-mono)" }}
         />
-        {err && <p className="text-sm text-red-400">{err}</p>}
+        {err && <p className="text-sm text-clay">{err}</p>}
         <button
           disabled={code.length !== 6 || loading}
-          className="w-full rounded-xl bg-amber py-3 font-medium text-black disabled:opacity-40"
+          className="w-full rounded-full bg-ink py-3.5 font-medium text-paper disabled:opacity-40"
         >
           {loading ? "..." : "Entrar"}
         </button>
       </form>
 
-      <a href="/admin/entrar" className="mt-6 text-center text-xs text-muted hover:text-ink">
-        Entrar como admin
+      <a href="/admin/entrar" className="mt-6 text-center text-xs text-ink-soft hover:text-ink">
+        entrar como admin
       </a>
     </main>
   );

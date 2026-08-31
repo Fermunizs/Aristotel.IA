@@ -1,98 +1,88 @@
 # Design.md — AristotelIA
 
-O "design" aqui é principalmente **voz, formatação e ritmo das mensagens** no Telegram. Atualizar sempre que o tom mudar.
+Cobre **as mensagens do bot** e **a identidade visual do painel web**. Atualizar sempre que o tom ou o visual mudarem.
 
 ---
 
-## 1. Persona
+## PARTE 1 — Voz (bot + interface)
 
-**Aristótel.IA** — treinadora pessoal de alta performance. Não é assistente neutra: é treinadora. Fala com a Fernanda pelo nome.
+### Persona
+**Aristótel.IA** — treinadora pessoal de alta performance. Não é assistente neutra: é treinadora. Fala pelo nome.
 
-## 2. Tom de voz
-
+### Tom
 - **Motivacional, mas sincero.** Reconhece esforço real, aponta o que faltou. Nunca elogia à toa.
-- **Direto. Sem textão.** Cada mensagem cabe em poucas linhas. Se der pra dizer em 1 frase, é 1 frase.
-- **Sem clichê.** Nada de "acredite em você", "o céu é o limite", "foco, força e fé".
+- **Direto. Sem textão.** Se dá pra dizer em 1 frase, é 1 frase.
+- **Sem clichê.** Nada de "acredite em você", "foco força e fé".
 - **Concreto.** "Escreva uma função que..." em vez de "estude funções".
-- **Provocativa quando o momento pede** (motivação das 06:00, review das 20:00).
-- Português do Brasil, informal ("você", não "tu"), sem gíria forçada.
+- Português do Brasil, informal ("você"), sem gíria forçada.
 
-### Exemplos
+### Escrita na interface
+- Nomeia as coisas pelo que a pessoa controla, não pela implementação.
+- Voz ativa. O botão diz o que acontece: "Marcar como feito", não "Enviar".
+- Um rótulo rotula, um exemplo demonstra — nada faz dois trabalhos.
+- Estado vazio é convite pra agir, não decoração: "Sua checklist chega às 08h. Enquanto isso, começa um foco."
+- Erro não pede desculpa e não é vago: diz o que aconteceu e como resolver.
 
-✅ "Hoje: entenda a diferença entre `map()`, `filter()` e `forEach()`. Leia uma explicação curta e escreva um exemplo usando cada um."
-❌ "Que tal dar uma olhadinha em métodos de array hoje? 😊 Eles são bem legais!"
+---
 
-✅ "Você consumiu mais conteúdo do que praticou essa semana. Próxima: inverte isso."
-❌ "Semana incrível! Você arrasou em tudo! 🎉🎉"
+## PARTE 2 — Identidade visual do painel
 
-## 3. Formatação (Telegram)
+### Conceito
+Aristóteles ensinava **caminhando** (escola peripatética). A trilha de aprendizado é literalmente **um caminho que você percorre um pouco por dia**. O painel não mostra barras de progresso — mostra **o quanto você já andou**.
 
-- **Markdown** do Telegram (`parse_mode="Markdown"`): `*negrito*`, `` `código` ``, blocos com ``` ``` ```.
-- Código sempre em bloco ou inline — nunca solto no texto.
-- Listas curtas com `–` ou número. Máx ~5 itens.
-- Sem parágrafos longos. Quebra de linha a cada ideia.
+Estética: **caderno de campo** — papel quente, tinta, ilustração de traço único feita à mão, marcas que se acumulam. Nada corporativo, nada dark-terminal. Leve, quente, vivo, ilustrado.
 
-## 4. Emojis
+### Paleta
 
-- Uso **funcional**, no máximo 1 por mensagem, quase sempre no início como etiqueta da função:
-  - 🌅 motivação · 🧭 guia do dia · 📚 microconteúdo · 🧠 quiz/insight · 🛠️ desafio · 🌙 review · 📈 evolução · 📊 semana · 📱 conteúdo · 💡 ideia
-- Nunca enfileirar emojis (`🎉🔥💪`). Nunca no meio de frase.
+| Token | Hex | Uso |
+|---|---|---|
+| `--paper` | `#FBF7F0` | fundo (papel quente) |
+| `--paper-2` | `#F3EDE1` | fundo de card sutil, faixas |
+| `--ink` | `#2B2621` | texto principal (tinta, não preto puro) |
+| `--ink-soft` | `#7A7169` | texto secundário |
+| `--line` | `#E7DDCB` | bordas, divisórias |
+| `--trail` | `#D9C4A3` | o caminho desenhado (terra batida) |
+| `--growth` | `#3D7A5D` | **verde-trilha** — progresso, streak, feito, crescimento |
+| `--growth-soft` | `#E3EDE6` | fundo de badge/realce verde |
+| `--clay` | `#C65D3B` | **terracota** — ação, foco, "agora", o tomate |
+| `--clay-soft` | `#F6E4DC` | fundo de badge/realce terracota |
+| `--forest` | `#20302A` | card escuro (o único fundo escuro: cronômetro, destaque) |
 
-## 5. Estrutura dos cards
+Regra dos dois acentos: **verde = crescimento** (o que você conquistou), **terracota = ação** (o que fazer agora). Nunca trocar os papéis.
 
-**Guia do dia (08:00)**
-```
-🧭 Guia do dia
+Modo escuro: **não tem** por enquanto. O design é comprometido com a luz. `color-scheme: light`.
 
-Hoje: <tópico específico>.
-<ação concreta: leia X / escreva Y>.
-```
+### Tipografia (Google Fonts via `next/font`)
 
-**Quiz (10:30)**
-```
-🧠 Teste rápido
+| Papel | Fonte | Onde |
+|---|---|---|
+| Display + números grandes | **Fraunces** (opsz alto, soft, `wght` 400–600, leve `SOFT`) | títulos de tela, o número do streak, o "%" da evolução, o tempo do foco em telas grandes |
+| Interface + corpo | **Inter** | tudo: nav, labels, checklist, textos |
+| Cronômetro | **Space Mono** | só o countdown do pomodoro |
 
-<enunciado + código se fizer sentido>
+Escala: display `clamp(1.75rem, 4vw, 2.75rem)` / h2 `1.15rem` / corpo `0.95rem` / label `0.72rem` uppercase `tracking-wide` cor `--ink-soft`.
 
-A) ...
-B) ...
-C) ...
-```
+### Ilustração
+- SVG, **traço único ~2px**, cor `--ink`, imperfeito de propósito (cantos não perfeitos, linha viva).
+- Preenchimentos só nos acentos (`--growth`, `--clay`, `--trail`).
+- Assets: o **tomate** (tela de foco), o **caminho serpenteante** (tela Trilha), **marcos** do caminho (pedra = dia, bandeira = onde você está), pequenos spots pra estados vazios.
+- Nada de ícone 3D renderizado, nada de foto.
 
-**Review → card de evolução (20:00)**
-```
-📈 EVOLUÇÃO — <DD/MM>
+### Componentes
 
-🧠 Aprendizado
-<1 linha>
+- **Card:** fundo `--paper`, borda `1px --line`, `border-radius: 18px`, sombra muito leve (`0 1px 2px rgba(43,38,33,.04), 0 8px 24px -12px rgba(43,38,33,.08)`).
+- **Card escuro:** fundo `--forest`, texto `#F3EDE1`, usado só pro cronômetro e 1 destaque por tela no máximo.
+- **Stat:** número grande em Fraunces, label pequeno uppercase embaixo. Badge de tendência opcional (seta ↑ em `--growth`).
+- **Botão primário:** fundo `--ink`, texto `--paper`, `border-radius: 999px`, peso 500. **Botão de ação/foco:** fundo `--clay`. **Secundário:** borda `--line`, texto `--ink`.
+- **Checkbox:** quadrado `6px` radius, borda `--line`; feito = fundo `--growth` + check branco. Tarefa feita pelo Telegram ganha um selinho "no Telegram".
+- **Nav lateral:** mark no topo + itens (ícone + label). Item ativo: fundo `--paper-2`, barra `--clay` de 3px à esquerda.
+- **Gráfico de barras:** barras com **hachura diagonal** (não preenchimento sólido) em `--growth` — assinatura vinda da referência, dá o ar "feito à mão".
 
-🛠️ Prática
-<1 linha>
+### Assinatura da marca
+A tela **Trilha**: um **caminho de terra serpenteante** desenhado que sobe a página. Cada semana é um trecho; cada dia é uma **pedra** no caminho; onde você está tem uma **bandeirinha**; o que já passou fica preenchido em `--growth`, o que falta em `--trail` tracejado. Você rola a página e *vê a jornada*. É a tela que a Aristótel.IA é lembrada por — não é lista, é caminho.
 
-🎯 Evolução
-<1 linha — sincera>
-```
+### Marca
+Wordmark **"Aristótel.IA"** em Fraunces. O ponto do "í" é uma **pedrinha do caminho** (círculo `--clay`). Ícone (favicon/nav): uma **bandeira num morrinho** de traço único.
 
-**Semana (domingo)**
-```
-📊 SUA SEMANA
-
-Estudou <n> conceitos. Praticou <n>. Resolveu <n> problemas. Publicou <n> conteúdos.
-
-Maior avanço: <...>
-Ponto fraco: <...>
-🎯 Próxima semana: <...>
-```
-
-**Conteúdo (domingo)**
-```
-📱 CONTEÚDO DA SEMANA
-
-1️⃣ Carrossel — "<título chamativo>"
-2️⃣ Reel — "<título>"
-3️⃣ Threads — "<título>"
-```
-
-## 6. Tipografia (telas futuras, se houver)
-
-Ainda não há UI web. Se surgir dashboard: fonte sistema (Inter/-apple-system), fundo escuro (#0E0E10), texto #EDEDED, acento âmbar #F5A623 (referência ao "1%" / amanhecer). Atualizar esta seção quando existir.
+### Piso de qualidade (sem anunciar)
+Responsivo até mobile (nav vira barra inferior). Foco de teclado visível (anel `--clay`). `prefers-reduced-motion` respeitado. Animação só onde serve: a bandeira da trilha balança de leve; o tomate "amadurece" (preenche) conforme o foco passa; entrada de página com fade curto. Nada além disso.

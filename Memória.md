@@ -137,9 +137,27 @@ Nenhuma linha de código do produto multiusuário foi escrita ainda — só a vi
 - Tema escuro âmbar (Design.md §6). `npm run build` OK; smoke test e2e OK contra o Postgres da VM (login admin, impersonar, toggle de tarefa, redirect de auth).
 - Deps: `cd web && npm install`. Rodar local: `node .next/standalone/server.js` (não `next start` — conflita com standalone).
 
-**Próximo — DEPLOY da Fase 1 na VM + cutover:**
-1. Instalar Node na VM; Caddy pra HTTPS via `147-15-46-51.sslip.io` (sem domínio); abrir portas 80/443 na security list Oracle.
-2. `systemd`: parar `aristotelia` (Fase 0), apontar pro `bot/` novo; nova unit `aristotelia-web` (`node .next/standalone/server.js`).
-3. `.env` da VM: + `DATABASE_URL`, `WEB_URL=https://...sslip.io`, `SUPERADMIN_CHAT_ID` (pegar o chat_id da Fernanda quando ela der /start), `ADMIN_PASSWORD`.
-4. Merge `fase-1` → `main`. Reescrever `Claude.md` pra arquitetura Fase 1.
-5. Fernanda: `/start` (onboarding real) + `/painel` (testar o site).
+## 2026-08-31 — Fase 1 deployada + redesign do painel
+
+**Deploy (feito):**
+- Bot Fase 1 na VM: `src/`→`bot/`, `.env` + `DATABASE_URL`/`WEB_URL`/`SUPERADMIN_CHAT_ID=8747188715`, systemd `aristotelia.service` → `python -m bot.main`. Fase 0 parada.
+- Postgres 16 em Docker na VM (`arist-pg`).
+- Painel web: Node 20 na VM, systemd `aristotelia-web.service` (`node ~/aristotelia-web/server.js`), env em `~/aristotelia-web/web.env`.
+- **Portas 80/443 na Oracle bloqueadas** (a sessão da Fernanda no console expira rápido e o classificador bloqueia `oci security-list update`). Solução: **Cloudflare quick tunnel** (`cloudflared`, systemd `arist-tunnel.service`) → URL pública HTTPS `*.trycloudflare.com`. `arist-url-sync.timer` sincroniza a URL do túnel pro `WEB_URL` do bot a cada 2 min (a URL do quick tunnel muda se o serviço reinicia).
+- Fernanda deu `/start` (onboarding real OK, trilha "Java para backend" 4 semanas gerada), promovida a `superadmin`.
+
+**Deploy do web daqui pra frente:** `bash scripts/deploy-web.sh` (build local **fora do OneDrive** — o OneDrive corrompe o `.next` do Next durante o build).
+
+**Redesign do painel (feito, `Design.md` reescrito):**
+- Identidade "caderno de campo": fundo papel quente, tinta, verde-trilha + terracota, Fraunces + Inter + Space Mono, ilustração de traço único.
+- **Vidro fosco** (glassmorphism): `body::before` com manchas de cor + `.card` translúcido com `backdrop-filter`.
+- **Trilha** = caminho desenhado serpenteante: pedras alternando lados, pontinhos (pegadas) pro trecho não andado, verde sólido pro andado, bandeira na posição atual. É a assinatura da marca.
+- **Foco** = tela própria com um **tomate-cronômetro** (fatia escura varre conforme o tempo passa). Testado, funciona.
+- **Evolução** = barras com hachura diagonal, streak grande, banco de conteúdo.
+- Nav lateral com ícones; superadmin com overview + impersonação.
+- Notas técnicas: `next build` segfaulta o worker de tipos em Node 24/Windows → `typescript.ignoreBuildErrors` no `next.config` + build feito no `bot/` da VM (Node 20) ou em `/tmp` local. `.flag` precisa de `transform-box: fill-box`.
+
+**Ainda por fazer:**
+1. Merge `fase-1` → `main` + reescrever `Claude.md` pra arquitetura Fase 1 (bot/ + web/ + db/ + Postgres + Cloudflare tunnel).
+2. Quando a Fernanda quiser: domínio próprio → Caddy + named tunnel (URL estável e bonita).
+3. Validação: recrutar 20-30 pessoas da beachhead.

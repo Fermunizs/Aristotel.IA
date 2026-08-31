@@ -1,6 +1,6 @@
 import { and, eq, gte, sql, desc } from "drizzle-orm";
 import { db } from "./db";
-import { events, focusSessions, learningPlans, streaks, tasks, users } from "./schema";
+import { contentIdeas, events, focusSessions, learningPlans, streaks, tasks, users } from "./schema";
 
 const todayISO = () =>
   new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
@@ -71,6 +71,60 @@ export async function dashboardData(userId: string) {
       foco: counts["foco"] ?? 0,
       focoMin: foco?.min ?? 0,
     },
+  };
+}
+
+export async function evolucaoData(userId: string) {
+  const since = daysAgoISO(13);
+
+  const evRows = await db
+    .select({ day: events.day, kind: events.kind, n: sql<number>`count(*)::int` })
+    .from(events)
+    .where(and(eq(events.userId, userId), gte(events.day, since)))
+    .groupBy(events.day, events.kind);
+
+  const map = new Map<string, { estudo: number; pratica: number; foco: number }>();
+  for (let i = 13; i >= 0; i--) map.set(daysAgoISO(i), { estudo: 0, pratica: 0, foco: 0 });
+  for (const r of evRows) {
+    const slot = map.get(r.day);
+    if (!slot) continue;
+    if (r.kind.startsWith("msg:") || r.kind === "quiz") slot.estudo += r.n;
+    else if (r.kind === "desafio" || r.kind === "review") slot.pratica += r.n;
+    else if (r.kind === "foco") slot.foco += r.n;
+  }
+  const series = [...map.entries()].map(([day, v]) => ({ day: day.slice(8), ...v }));
+
+  const [streak] = await db
+    .select()
+    .from(streaks)
+    .where(and(eq(streaks.userId, userId), eq(streaks.kind, "diario")))
+    .limit(1);
+
+  const totals = await db
+    .select({ kind: events.kind, n: sql<number>`count(*)::int` })
+    .from(events)
+    .where(and(eq(events.userId, userId), gte(events.day, since)))
+    .groupBy(events.kind);
+  const t: Record<string, number> = {};
+  for (const r of totals) t[r.kind] = r.n;
+
+  const ideas = await db
+    .select()
+    .from(contentIdeas)
+    .where(eq(contentIdeas.userId, userId))
+    .orderBy(desc(contentIdeas.createdAt))
+    .limit(8);
+
+  return {
+    series,
+    streak: streak ?? { current: 0, best: 0 },
+    totals: {
+      quiz: t["quiz"] ?? 0,
+      desafio: t["desafio"] ?? 0,
+      review: t["review"] ?? 0,
+      foco: t["foco"] ?? 0,
+    },
+    ideas,
   };
 }
 

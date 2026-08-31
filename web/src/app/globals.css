@@ -1,26 +1,111 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg: #0e0e10;
-  --color-panel: #171719;
-  --color-line: #262629;
-  --color-ink: #ededed;
-  --color-muted: #8a8a8f;
-  --color-amber: #f5a623;
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --color-paper: #fbf7f0;
+  --color-paper-2: #f3ede1;
+  --color-ink: #2b2621;
+  --color-ink-soft: #7a7169;
+  --color-line: #e7ddcb;
+  --color-trail: #d9c4a3;
+  --color-growth: #3d7a5d;
+  --color-growth-soft: #e3ede6;
+  --color-clay: #c65d3b;
+  --color-clay-soft: #f6e4dc;
+  --color-forest: #20302a;
+
+  --font-display: var(--font-display), ui-serif, Georgia, serif;
+  --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono), ui-monospace, monospace;
 }
 
-html { color-scheme: dark; }
+:root {
+  color-scheme: light;
+}
 
 body {
-  background: var(--color-bg);
+  position: relative;
+  min-height: 100vh;
+  background: var(--color-paper);
   color: var(--color-ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }
 
+/* atmosfera atrás do vidro: manchas suaves de cor (sem filter — barato) */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(60vmax 60vmax at 8% 2%, color-mix(in srgb, var(--color-growth) 26%, transparent), transparent 55%),
+    radial-gradient(65vmax 65vmax at 96% 14%, color-mix(in srgb, var(--color-clay) 24%, transparent), transparent 52%),
+    radial-gradient(70vmax 70vmax at 75% 98%, color-mix(in srgb, var(--color-trail) 50%, transparent), transparent 55%);
+}
+
+h1, h2, h3, .display {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-ink-soft);
+  font-weight: 500;
+}
+
+/* vidro fosco */
 .card {
-  background: var(--color-panel);
-  border: 1px solid var(--color-line);
-  border-radius: 14px;
+  background: color-mix(in srgb, var(--color-paper) 62%, transparent);
+  backdrop-filter: blur(10px) saturate(1.4);
+  -webkit-backdrop-filter: blur(10px) saturate(1.4);
+  border: 1px solid color-mix(in srgb, #ffffff 50%, var(--color-line));
+  border-radius: 18px;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #ffffff 60%, transparent),
+    0 1px 2px rgba(43, 38, 33, 0.04),
+    0 14px 34px -16px rgba(43, 38, 33, 0.14);
+}
+
+/* nested: sem blur duplo */
+.card .card {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.card-solid {
+  background: var(--color-paper);
+  backdrop-filter: none;
+}
+
+.num {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--color-clay);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.hatch {
+  background-image: repeating-linear-gradient(45deg, var(--color-growth) 0 2px, transparent 2px 5px);
+}
+
+.flag {
+  transform-box: fill-box;
+  transform-origin: 50% 95%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .flag { animation: sway 3.6s ease-in-out infinite; }
+  @keyframes sway { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
+  .fade-in { animation: fade 0.35s ease both; }
+  @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 }
