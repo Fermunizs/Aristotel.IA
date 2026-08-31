@@ -7,16 +7,21 @@
 
 ## 1. Visão
 
-Um **treinador de alta performance** que transforma intenção em evolução composta.
-Você diz o que quer desenvolver → a AristotelIA monta a trilha, te cobra todo dia, registra o que você fez e te mostra que está evoluindo 1% por dia.
+**Um treinador pessoal para pessoas que têm dificuldade de foco.**
 
-Não é app de tarefas. Não é curso. É um **coach ativo e opinativo** que vive no seu bolso (Telegram) e tem um painel pra ver o todo (web).
+Você define um objetivo. A AristotelIA vira sua treinadora: monta o plano, decide o que você faz hoje, te cobra, corrige a rota, registra tudo e te mostra que você está evoluindo — **e te alcança onde você já está**, não em mais um app pra você esquecer de abrir.
+
+O diferencial (o "fora da curva"):
+- **A treinadora decide, não você.** Você não configura um sistema — você ganha um plano e alguém que não desiste de você. (Personalização vem depois que a pessoa confia.)
+- **Ela te encontra onde você vive.** Telegram, notificação no navegador, e-mail, evento na agenda — **você escolhe o canal e o tipo de lembrete**, e ela te ensina a conectar. Zero fricção.
+- **Feita para quem não consegue focar.** Toda a experiência assume que você VAI procrastinar, VAI esquecer, NÃO vai abrir o app. Então ela é proativa, sem culpa ("hoje não" reagenda de boa) e se adapta ao seu ritmo real.
+- **Conecta com a sua vida.** Lê sua agenda pra marcar foco nas brechas reais; escreve as sessões de volta como eventos.
 
 ## 2. Problema (o wedge)
 
-**"Quero me desenvolver mas não sei por onde começar, não tenho cronograma, consumo conteúdo demais e aplico de menos, e não consigo ver se estou evoluindo."**
+**"Eu sei o que preciso fazer. Só não consigo fazer de forma consistente."**
 
-Ferramentas existentes falham porque são **passivas**: te dão um quadro em branco (Notion), um catálogo (Udemy) ou um cronômetro (qualquer app de foco). Ninguém te diz *o que fazer hoje* e te cobra.
+O problema de quem tem dificuldade de foco não é falta de informação nem de ferramenta — é **falta de alguém puxando**. As ferramentas existentes são **passivas**: dão um quadro em branco (Notion), um catálogo (Udemy), um cronômetro (apps de foco), ou um chat sem memória (ChatGPT). Todas exigem que VOCÊ tenha a disciplina que você não tem. E todas são "mais um app pra abrir".
 
 ## 3. Público
 
@@ -29,24 +34,36 @@ Motivo: é onde o "não sei por onde começar" mais dói, tem gente reclamando d
 
 ## 4. Princípios de produto
 
-1. **Opinativo.** Setup de 3 perguntas + defaults inteligentes. A mágica é ela decidir por você. Customização avançada é v2, não v1.
-2. **Ativo.** Ela puxa a conversa. O usuário não precisa "abrir o app".
-3. **Composto.** Tudo vira registro. O valor aparece na 3ª semana, quando você vê o gráfico subir.
-4. **Fricção zero.** Telegram primeiro. A web é complemento, nunca pré-requisito.
-5. **Aplicação > consumo.** Todo dia precisa ter contato + interação + aplicação, não só "leia isso".
+1. **A treinadora decide.** Setup curto + ela monta tudo. A pessoa não configura um sistema — ganha um plano. Personalização é recompensa por confiança, não pré-requisito.
+2. **Ativa.** Ela puxa a conversa. A pessoa não precisa "abrir o app".
+3. **Te encontra onde você está.** A pessoa escolhe canal (Telegram, push no navegador, e-mail, agenda) e tipo de cada lembrete. A treinadora ensina a conectar.
+4. **Sem culpa.** "Hoje não" reagenda sem quebrar nada. O tom nunca pune.
+5. **Composto.** Tudo vira registro. O valor aparece na 3ª semana, quando o gráfico sobe.
+6. **Conecta com a vida real.** Lê a agenda pra caber nas brechas; devolve foco como evento.
 
-## 5. Arquitetura
+## 5. Arquitetura (alvo — Fase 2+)
 
 ```
-┌─────────────┐     ┌──────────────────┐     ┌─────────────┐
-│  Telegram    │────▶│   API (backend)   │◀────│  Painel Web  │
-│  bot (coach) │     │  + agendador      │     │  (Next.js)   │
-└─────────────┘     └────────┬─────────┘     └─────────────┘
-                             │
-                      ┌──────▼──────┐
-                      │  PostgreSQL  │  (estado por usuário)
-                      └─────────────┘
+      CANAIS (a pessoa escolhe)                 CONTROLE
+ ┌──────────┬──────────┬─────────┐        ┌──────────────────┐
+ │ Telegram │ push web │ e-mail  │        │  App / Painel     │
+ │  (bot)   │  (PWA)   │         │        │  (Next.js/PWA)    │
+ └────┬─────┴────┬─────┴────┬────┘        └─────────┬────────┘
+      │          │          │                       │
+      ▼          ▼          ▼                       ▼
+ ┌─────────────────────────────────────────────────────────┐
+ │  API + MOTOR DE LEMBRETES + agendador por usuário         │
+ │  (o que enviar · quando · por qual canal · adaptação)    │
+ └───────────────┬───────────────────────┬─────────────────┘
+                 │                       │
+          ┌──────▼──────┐         ┌──────▼───────────┐
+          │  PostgreSQL  │         │  Google Calendar  │
+          └─────────────┘         │  (ler brechas /   │
+                                  │   escrever foco)  │
+                                  └──────────────────┘
 ```
+
+**Estado hoje (Fase 1):** só o canal Telegram + painel web + Postgres. O motor de lembretes existe como horários fixos por usuário (`preferences.enabled_functions`). Falta: a pessoa configurar isso pelo app, canais além do Telegram, e a agenda.
 
 - **Bot Telegram** — o que já existe, reescrito pra multiusuário. Lê/escreve no mesmo banco.
 - **API + agendador** — jobs por usuário (respeitando fuso e horários de cada um), geração de trilha, sync de checklist.
@@ -94,7 +111,28 @@ Legenda: **[MVP]** valida o produto · **[v2]** depois do primeiro sinal · **[d
 - **[v2]** Skill tree com XP e níveis (gamificação sóbria).
 - **[depois]** Portfólio público: desafios concluídos viram um "build log" compartilhável.
 
-### 6.6 Conteúdo (diferencial — manter)
+### 6.6 Motor de lembretes (o "fora da curva" — Fase 2)
+Onde a pessoa **desenha o próprio acompanhamento**, dentro do app:
+- **[F2]** Lista de lembretes. Cada um tem: **o quê** (motivação · o que estudar · pílula · quiz · desafio · check-in · lembrete livre que a pessoa escreve), **quando** (horário fixo · "de manhã/tarde/noite" · X min antes de um evento da agenda), **canal** (Telegram · notificação no navegador · e-mail · evento na agenda).
+- **[F2]** A treinadora sugere um conjunto pronto no onboarding; a pessoa ajusta depois.
+- **[F2]** "Quiet hours" e pausar tudo com 1 toque (viagem, doença) — sem quebrar streak.
+- **[F2]** Snooze inteligente: "hoje não" reagenda; 3 "hoje não" seguidos → a treinadora puxa uma conversa, não insiste.
+- **[depois]** Lembrete adaptativo: se você sempre ignora o das 08h e responde o das 21h, ela move sozinha.
+
+### 6.7 Canais (a pessoa escolhe onde ser alcançada — Fase 2)
+- **[F2]** **Telegram** — já existe. Tela de conexão explica o passo a passo (`/start`, deep link).
+- **[F2]** **Notificação no navegador (PWA)** — app instalável, push mesmo fechado. Bom pra quem não usa Telegram.
+- **[F2]** **E-mail** — digest diário / lembretes, pra quem quer o mínimo de fricção.
+- **[F3]** **WhatsApp** — só se houver tração (API oficial cobra por conversa; ver Produto §10).
+- **[F3]** **SMS** — fallback caro, só pro check-in crítico.
+
+### 6.8 Agenda / Calendário (Fase 2)
+- **[F2]** Conectar **Google Calendar** (OAuth). Ler os horários ocupados → a treinadora marca foco e estudo **nas brechas reais**, não em horário genérico.
+- **[F2]** Escrever as sessões de foco de volta como eventos ("🍅 Foco — Generics em Java").
+- **[F3]** Lembrete "X min antes do evento Y" (ex: antes de uma aula, antes de uma reunião).
+- **[F3]** Outlook / Apple Calendar (via CalDAV).
+
+### 6.9 Conteúdo (diferencial — manter)
 - **[MVP]** Banco de ideias + planner semanal (já existe).
 - **[v2]** "Esse aprendizado → carrossel / reel / threads" com rascunho de copy.
 - **[v2]** Marcar o que foi realmente publicado (fecha o loop formação → conteúdo).
@@ -150,10 +188,18 @@ Se der sinal bom em ≥ 3 delas → investir em web + preço + expandir público
 
 ## 9. Roadmap faseado
 
-- **Fase 0 — hoje:** bot pessoal rodando (Oracle, US$0). Fernanda é usuária nº 1.
-- **Fase 1 — multiusuário (validação):** Postgres, onboarding, trilha gerada, checklist com auto-check, pomodoro básico, superadmin mínimo. Só Telegram + um painel enxuto.
-- **Fase 2 — se validar:** dashboard de evolução completo, trilha adaptativa, gerador de conteúdo, preço.
-- **Fase 3 — escala:** social/accountability, integrações, trilhas-modelo, expandir além de tech.
+- **Fase 0 — feito:** bot pessoal (Oracle, US$0). Fernanda usuária nº 1.
+- **Fase 1 — feito:** multiusuário (Postgres), onboarding que gera trilha, checklist com auto-check, pomodoro, painel web com identidade visual, superadmin. Canal: só Telegram. **← estamos aqui**
+- **Fase 2 — o "fora da curva" (o que a Fernanda descreveu):**
+  - **Motor de lembretes configurável** — a pessoa desenha o próprio acompanhamento no app (§6.6): o quê, quando, por qual canal.
+  - **Canais** — Telegram (tem) + **push no navegador (PWA)** + **e-mail**. Tela de conexão que explica o setup de cada um.
+  - **Google Calendar** — ler brechas pra marcar foco onde cabe; escrever sessões de volta (§6.8).
+  - **App instalável (PWA)** — pra funcionar como app de celular com notificação, sem loja.
+  - Trilha adaptativa; dashboard de evolução completo.
+  - **Preço** — testar assinatura.
+- **Fase 3 — escala:** WhatsApp, social/accountability, trilhas-modelo, B2B (bootcamps), expandir além de tech.
+
+**Ordem sugerida da Fase 2:** (1) tela de configuração de lembretes no painel → (2) push PWA como 2º canal → (3) e-mail → (4) Google Calendar. Cada uma é testável sozinha.
 
 ## 10. Modelo de negócio (hipóteses — testar, não assumir)
 
