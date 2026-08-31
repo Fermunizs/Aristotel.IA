@@ -157,7 +157,20 @@ Nenhuma linha de código do produto multiusuário foi escrita ainda — só a vi
 - Nav lateral com ícones; superadmin com overview + impersonação.
 - Notas técnicas: `next build` segfaulta o worker de tipos em Node 24/Windows → `typescript.ignoreBuildErrors` no `next.config` + build feito no `bot/` da VM (Node 20) ou em `/tmp` local. `.flag` precisa de `transform-box: fill-box`.
 
+## 2026-08-31 — Fase 2 iniciada: motor de lembretes
+
+Visão evoluída (Produto.md reescrito): **plataforma de treino pra quem tem dificuldade de foco**, multi-canal (a pessoa escolhe onde ser alcançada), com agenda. Monetização futura: 5 lembretes grátis, +5 = Pro (sem enforcement agora — plano free generoso).
+
+**Feito — motor de lembretes (Fase 2, item 1):**
+- `db/migrations/0002_reminders.sql`: tabela `reminders` (kind, at_time/period, days jsonb [0=seg..6=dom], channel, enabled, sort_order) + `users.plan` (free/pro, sem enforcement) + `bot_state.reminders_dirty`. Backfill: 7 lembretes padrão pros usuários ativos.
+- **Bot** agenda a partir de `reminders` (não mais `DEFAULT_TIMES`+`enabled_functions` fixos). `config.REMINDER_JOBS` mapeia kind→função. Novo job `free_reminder` (manda o texto que a pessoa escreveu). `scheduling.resync_dirty` + tick de 60s em `main.py` re-agenda quem mexeu pelo painel. `onboarding._finish` cria o conjunto padrão.
+- **Web** `/lembretes` (`RemindersEditor.tsx`): a pessoa vê o acompanhamento que a treinadora montou e ajusta — horário, dias da semana, ligar/desligar, remover, adicionar lembrete livre. API `/api/reminders` (POST/PATCH/DELETE) + `markDirty`.
+- Canal: só `telegram` por ora; `push`/`email` aparecem como "em breve".
+- Split `reminder-kinds.ts` (constantes, client-safe) × `reminders.ts` (db) — `postgres` não pode entrar no bundle do cliente (erro "Can't resolve 'net'").
+- Testado e2e: toggle no painel → `reminders_dirty` → bot re-agenda (7→6 lembretes) em <60s. Deployado.
+
 **Ainda por fazer:**
-1. Merge `fase-1` → `main` + reescrever `Claude.md` pra arquitetura Fase 1 (bot/ + web/ + db/ + Postgres + Cloudflare tunnel).
-2. Quando a Fernanda quiser: domínio próprio → Caddy + named tunnel (URL estável e bonita).
-3. Validação: recrutar 20-30 pessoas da beachhead.
+1. Fase 2 itens 2-4: push PWA · e-mail · Google Calendar. Trilha adaptativa. Dashboard de evolução completo.
+2. Merge `fase-1` → `main` + reescrever `Claude.md` (arquitetura Fase 1/2).
+3. Domínio próprio → Caddy + named tunnel (URL estável).
+4. Validação: 20-30 pessoas da beachhead.
