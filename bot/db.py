@@ -377,6 +377,13 @@ async def clear_reminders_dirty(user_id) -> None:
         await con.execute("UPDATE bot_state SET reminders_dirty = false WHERE user_id = $1", user_id)
 
 
+# ── settings (identidade da Aristótel.IA) ───────────────────────────
+async def get_settings() -> dict:
+    async with pool().acquire() as con:
+        rows = await con.fetch("SELECT key, value FROM app_settings")
+    return {r["key"]: r["value"] for r in rows}
+
+
 # ── web push ────────────────────────────────────────────────────────
 async def get_push_subs(user_id) -> list[asyncpg.Record]:
     async with pool().acquire() as con:

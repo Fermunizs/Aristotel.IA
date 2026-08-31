@@ -1,27 +1,10 @@
-"""PERSONA + system prompt de cada função. Ver Design.md para o tom."""
+"""System prompt de cada função. A identidade (persona) vem de bot/coach.py (editável)."""
 from __future__ import annotations
 
-_PERSONA_BASE = (
-    "Você é a Aristótel.IA, treinadora pessoal de alta performance. "
-    "Seu papel: dizer exatamente o que estudar/fazer, fazer a pessoa pensar, fazer a pessoa aplicar, "
-    "registrar a evolução e transformar o aprendizado em conteúdo. "
-    "TOM: motivacional mas SINCERO, direto, sem clichê, sem elogio à toa, SEM TEXTÃO. "
-    "Português do Brasil, informal (você). No máximo 1 emoji por mensagem, no início. "
-    "Código sempre em bloco ou crase. Nunca enfileire emojis."
-)
+from .coach import persona  # noqa: F401  — persona() editável pelo painel
 
-
-def persona(name: str | None = None, goal: str | None = None) -> str:
-    extra = ""
-    if name:
-        extra += f" A pessoa se chama {name}."
-    if goal:
-        extra += f" Ela está trabalhando para: {goal}."
-    return _PERSONA_BASE + extra
-
-
-# compat: alguns módulos ainda importam PERSONA direto
-PERSONA = _PERSONA_BASE
+# compat: quem importa PERSONA direto
+PERSONA = persona()
 
 MOTIVATION = (
     "Escreva UMA frase provocativa para começar o dia. "

@@ -23,7 +23,15 @@ export function Sidebar({
 }) {
   const path = usePathname();
   const router = useRouter();
-  const items = isAdmin ? [...NAV, { href: "/admin", label: "Admin", icon: AdminIcon }] : NAV;
+  const items = isAdmin
+    ? [
+        ...NAV,
+        { href: "/admin", label: "Pessoas", icon: AdminIcon },
+        { href: "/admin/aristotelia", label: "Ajustar IA", icon: AjustarIcon },
+      ]
+    : NAV;
+  const isActive = (href: string) =>
+    href === "/" || href === "/admin" ? path === href : path.startsWith(href);
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -53,7 +61,7 @@ export function Sidebar({
 
         <nav className="mt-8 flex flex-col gap-1">
           {items.map(({ href, label, icon: Icon }) => {
-            const active = href === "/" ? path === "/" : path.startsWith(href);
+            const active = isActive(href);
             return (
               <Link
                 key={href}
@@ -91,7 +99,7 @@ export function Sidebar({
       {/* mobile: barra inferior */}
       <nav className="fixed inset-x-0 bottom-0 z-20 flex justify-around border-t border-line bg-paper py-2 md:hidden">
         {items.map(({ href, label, icon: Icon }) => {
-          const active = href === "/" ? path === "/" : path.startsWith(href);
+          const active = isActive(href);
           return (
             <Link
               key={href}
@@ -118,3 +126,4 @@ function FocoIcon() { return <svg {...S}><circle cx="12" cy="13" r="7" /><path d
 function LembreteIcon() { return <svg {...S}><path d="M6 10a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6M10 20a2 2 0 0 0 4 0" /></svg>; }
 function EvolucaoIcon() { return <svg {...S}><path d="M4 18h16M6 18v-4M11 18v-8M16 18v-6M21 18V8" /></svg>; }
 function AdminIcon() { return <svg {...S}><circle cx="9" cy="8" r="3" /><circle cx="16" cy="10" r="2.5" /><path d="M4 19c0-3 2-5 5-5s5 2 5 5M14 19c0-2 1-3.5 2.5-3.5" /></svg>; }
+function AjustarIcon() { return <svg {...S}><path d="M5 7h9M18 7h1M5 17h1M10 17h9" /><circle cx="16" cy="7" r="2" /><circle cx="8" cy="17" r="2" /></svg>; }

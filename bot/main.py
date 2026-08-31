@@ -5,7 +5,7 @@ import logging
 
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
 
-from . import config, db, handlers, scheduling
+from . import coach, config, db, handlers, scheduling
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s", level=logging.INFO
@@ -15,10 +15,16 @@ log = logging.getLogger("aristotelia")
 
 async def _post_init(app: Application) -> None:
     await db.connect()
+    await coach.refresh()
     await scheduling.schedule_all(app)
     app.job_queue.run_repeating(_outbox_tick, interval=15, first=10, name="outbox")
     app.job_queue.run_repeating(_resync_tick, interval=60, first=30, name="resync")
+    app.job_queue.run_repeating(_coach_tick, interval=120, first=120, name="coach")
     log.info("Aristótel.IA no ar. LLM: %s (%s)", config.LLM_PROVIDER, config.LLM_MODEL)
+
+
+async def _coach_tick(context) -> None:
+    await coach.refresh()
 
 
 async def _resync_tick(context) -> None:
