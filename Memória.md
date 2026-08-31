@@ -102,3 +102,23 @@ Fernanda quer transformar a AristotelIA num **sistema de produtividade e desenvo
 - **Fase atual = Fase 0** (bot pessoal). Próxima = Fase 1 (multiusuário + onboarding que gera trilha + Postgres + superadmin mínimo), pra rodar validação de 30 dias com 20-30 pessoas.
 
 Nenhuma linha de código do produto multiusuário foi escrita ainda — só a visão.
+
+## 2026-08-31 — Fase 1 iniciada (multiusuário)
+
+**Decisões de stack:**
+- Bot continua **Python** (não reescreve o que funciona) + web **Next.js/TS**, os dois no mesmo **Postgres**. Schema = contrato compartilhado.
+- Login no painel web: **código de uso único gerado pelo bot** (sem e-mail/senha). Superadmin tem senha própria (`admin_credentials`).
+
+**Feito:**
+- `git init` + commit da Fase 0 em `main`. Branch **`fase-1`** criada (Fase 0 segue rodando na VM até o cutover).
+- Reestruturado: `src/` → `bot/`. Criados `db/` e `web/`.
+- **Postgres 16** rodando na VM: container Docker `arist-pg` (`127.0.0.1:5432`, volume `arist_pgdata`, restart unless-stopped). DB `aristotelia`, user `arist`, senha `arist_local_dev`.
+- **Schema aplicado** — `db/migrations/0001_init.sql` (13 tabelas): users, auth_codes, web_sessions, admin_credentials, preferences, learning_plans, tasks, events, focus_sessions, content_ideas, streaks, bot_state, outbox. Ver `db/README.md`.
+
+**Próximo (Fase 1, em ordem):**
+1. `bot/db.py` — pool asyncpg + runner de migrations + DAO por usuário.
+2. Refatorar `storage/jobs/handlers/weekly` do bot pra multiusuário (estado por `user_id`, jobs por usuário respeitando fuso/horários/funções ligadas).
+3. Onboarding no Telegram: novo usuário → 3 perguntas → LLM gera trilha → agenda os jobs dele.
+4. Checklist: trilha do dia vira `tasks`; auto-check quando feito pelo Telegram.
+5. Web (Next.js): auth por código, superadmin (lista/criar/impersonar), dashboard do usuário (checklist + pomodoro + evolução).
+6. Deploy dos dois na VM + cutover (merge `fase-1` → `main`).
