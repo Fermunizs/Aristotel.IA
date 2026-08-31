@@ -214,11 +214,15 @@ function AddForm({ onDone, onCancel }: { onDone: () => void; onCancel: () => voi
   const [time, setTime] = useState("09:00");
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
 
   async function save() {
     setBusy(true);
-    await api("POST", { kind, atTime: time, customText: text, days: ALL_DAYS });
-    onDone();
+    setErr("");
+    const res = await api("POST", { kind, atTime: time, customText: text, days: ALL_DAYS });
+    if (res.ok) return onDone();
+    setErr((await res.json().catch(() => ({}))).error ?? "Não deu.");
+    setBusy(false);
   }
 
   return (
@@ -251,6 +255,7 @@ function AddForm({ onDone, onCancel }: { onDone: () => void; onCancel: () => voi
         className="card-solid rounded-lg border border-line px-2.5 py-1.5 text-sm outline-none focus:border-clay"
       />
 
+      {err && <p className="text-sm text-clay">{err}</p>}
       <div className="flex gap-2">
         <button
           onClick={save}

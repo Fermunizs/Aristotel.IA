@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { adminOverview } from "@/lib/queries";
 import { ImpersonateButton } from "@/components/ImpersonateButton";
+import { UserControls } from "@/components/UserControls";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,8 @@ function ago(d: Date | null) {
 
 export default async function Admin() {
   const session = (await getSession())!;
-  if (session.account.role !== "superadmin") redirect("/");
+  const canManage = session.account.role === "superadmin";
+  if (!canManage && session.account.role !== "admin") redirect("/");
 
   const { rows, stats } = await adminOverview();
 
@@ -52,6 +54,7 @@ export default async function Admin() {
               <th className="label p-3 font-medium">Streak</th>
               <th className="label p-3 font-medium">Hoje</th>
               <th className="label p-3 font-medium">Visto</th>
+              {canManage && <th className="label p-3 font-medium">Acesso</th>}
               <th className="p-3" />
             </tr>
           </thead>
@@ -65,9 +68,7 @@ export default async function Admin() {
                 <td className="p-3">
                   <span
                     className={`rounded-full px-2 py-0.5 text-xs ${
-                      r.status === "active"
-                        ? "bg-growth-soft text-growth"
-                        : "bg-clay-soft text-clay"
+                      r.status === "active" ? "bg-growth-soft text-growth" : "bg-clay-soft text-clay"
                     }`}
                   >
                     {r.status === "active" ? "ativa" : "onboarding"}
@@ -78,6 +79,16 @@ export default async function Admin() {
                   {r.doneToday}/{r.totalToday}
                 </td>
                 <td className="p-3 text-ink-soft">{ago(r.lastSeenAt)}</td>
+                {canManage && (
+                  <td className="p-3">
+                    <UserControls
+                      id={r.id}
+                      role={r.role}
+                      plan={r.plan}
+                      isSelf={r.id === session.account.id}
+                    />
+                  </td>
+                )}
                 <td className="p-3 text-right">
                   <ImpersonateButton userId={r.id} />
                 </td>

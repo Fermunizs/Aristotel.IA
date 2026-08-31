@@ -15,22 +15,22 @@ const NAV = [
 
 export function Sidebar({
   name,
-  isAdmin,
+  role,
   impersonating,
 }: {
   name: string;
-  isAdmin: boolean;
+  role: string;
   impersonating: boolean;
 }) {
   const path = usePathname();
   const router = useRouter();
-  const items = isAdmin
-    ? [
-        ...NAV,
-        { href: "/admin", label: "Pessoas", icon: AdminIcon },
-        { href: "/admin/aristotelia", label: "Ajustar IA", icon: AjustarIcon },
-      ]
-    : NAV;
+  const items = [...NAV];
+  if (role === "admin" || role === "superadmin") {
+    items.push({ href: "/admin", label: "Pessoas", icon: AdminIcon });
+  }
+  if (role === "superadmin") {
+    items.push({ href: "/admin/aristotelia", label: "Ajustar IA", icon: AjustarIcon });
+  }
   const isActive = (href: string) =>
     href === "/" || href === "/admin" ? path === href : path.startsWith(href);
 

@@ -14,7 +14,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="mx-auto flex min-h-screen max-w-5xl">
       <Sidebar
         name={session.viewing.name ?? "você"}
-        isAdmin={session.account.role === "superadmin"}
+        role={session.account.role}
         impersonating={impersonating}
       />
       <main className="fade-in flex-1 px-5 pb-24 pt-8 md:px-10 md:pb-10">{children}</main>

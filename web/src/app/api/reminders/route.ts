@@ -3,9 +3,10 @@ import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { reminders } from "@/lib/schema";
 import { getSession } from "@/lib/session";
-import { KINDS, markDirty } from "@/lib/reminders";
+import { KINDS, markDirty, reminderCount } from "@/lib/reminders";
 
 const isKind = (k: unknown) => typeof k === "string" && k in KINDS;
+const LIMIT: Record<string, number> = { free: 5, pro: 30, unlimited: Infinity };
 
 export async function POST(req: Request) {
   const session = await getSession();
@@ -14,6 +15,14 @@ export async function POST(req: Request) {
 
   const b = await req.json().catch(() => ({}));
   if (!isKind(b.kind)) return NextResponse.json({ error: "tipo inválido" }, { status: 400 });
+
+  const cap = LIMIT[session.viewing.plan] ?? 5;
+  if ((await reminderCount(uid)) >= cap) {
+    return NextResponse.json(
+      { error: `Seu plano permite ${cap} lembretes ativos. Desligue um ou fale com a gente pra liberar mais.` },
+      { status: 402 },
+    );
+  }
 
   const [{ n }] = await db
     .select({ n: sql<number>`coalesce(max(sort_order),-1)::int` })

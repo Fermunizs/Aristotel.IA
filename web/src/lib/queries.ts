@@ -135,6 +135,8 @@ export async function adminOverview() {
       name: users.name,
       username: users.telegramUsername,
       status: users.status,
+      role: users.role,
+      plan: users.plan,
       createdAt: users.createdAt,
       lastSeenAt: users.lastSeenAt,
       streak: sql<number>`coalesce((select current from streaks s where s.user_id = users.id and s.kind='diario'),0)::int`,
