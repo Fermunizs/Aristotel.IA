@@ -194,10 +194,19 @@ Bug reportado pela Fernanda: pediu ajuda no desafio → a bot respondeu "marquei
 - Editar no painel → o bot aplica em ~2 min (testado e2e).
 - **Futuro:** personalidade da treinadora **por usuário** (a pessoa escolhe durão × gentil) construiria em cima disso; hoje é global.
 
+## 2026-08-31 — personalidade da treinadora por usuário
+
+- `db/migrations/0006_coach_tone.sql`: `preferences.coach_tone` com CHECK `gentil|equilibrada|durona`, default `equilibrada` (backfill do 'sincero' antigo).
+- `bot/coach.py` `TONE{}` — snippet por tom, anexado ao `persona()`. `persona(name, goal, tone)`.
+- `db.get_user`/`user_by_chat`/`active_users`/`get_or_create_user` fazem `LEFT JOIN preferences` → coluna `coach_tone` sempre presente. Todos os call sites de `persona()` passam `user["coach_tone"]` (lido fresco a cada mensagem — sem reschedule).
+- **Onboarding** ganhou a 4ª pergunta: "como você quer que eu te cobre? 1 gentil / 2 equilibrada / 3 durona".
+- **Web**: seletor "Como ela te cobra" no topo de `/lembretes` + `/api/prefs` PATCH.
+- Testado: mesmo prompt, `gentil` = "cada linha é um tijolo…" vs `durona` = "se hoje você não codificar, quem escreve seu próximo salário?".
+
 **Ainda por fazer:**
 1. Fase 2 itens 3-4: e-mail · Google Calendar. Trilha adaptativa. Dashboard de evolução completo.
-2. Memória mais longa (a bot lembrar "ontem você travou em X") — hoje só 14 msgs; o resto está em `events` + review semanal.
-3. Personalidade do coach por usuário (em cima do `app_settings`).
+2. Memória mais longa (a bot lembrar "ontem você travou em X") — hoje só 14 msgs.
+3. Merge `fase-1` → `main` + reescrever `Claude.md`.
 2. Merge `fase-1` → `main` + reescrever `Claude.md` (arquitetura Fase 1/2 completa).
 3. Domínio próprio → Caddy + named tunnel (URL estável, e a PWA precisa de HTTPS estável pro push não quebrar).
 4. Validação: 20-30 pessoas da beachhead.
