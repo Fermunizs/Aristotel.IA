@@ -203,10 +203,26 @@ Bug reportado pela Fernanda: pediu ajuda no desafio → a bot respondeu "marquei
 - **Web**: seletor "Como ela te cobra" no topo de `/lembretes` + `/api/prefs` PATCH.
 - Testado: mesmo prompt, `gentil` = "cada linha é um tijolo…" vs `durona` = "se hoje você não codificar, quem escreve seu próximo salário?".
 
+## 2026-08-31 — camada de LIMITES + tela de ajustes do usuário
+
+Estrutura de config em **3 níveis** (pedido da Fernanda):
+| Nível | Onde | Quem edita |
+|---|---|---|
+| **LIMITES** | `/admin/aristotelia` seção "Limites" | só superadmin; usuários não veem |
+| **IDENTIDADE** (o padrão) | `/admin/aristotelia` seção "Identidade" | só superadmin |
+| **AJUSTE DO USUÁRIO** | `/ajustes` | cada pessoa |
+
+- `db/migrations/0007_limits.sql`: `app_settings` ganha `nunca` (guardrail) e `teto_tokens` (default 600); `preferences.coach_note` (pedido pessoal do usuário).
+- `bot/coach.py`: `persona()` põe `NUNCA: {nunca}` no topo com prioridade máxima + `note` do usuário (dentro dos limites). `token_cap()` lê `teto_tokens`.
+- `bot/util.py` `_cap()`: clampa `max_tokens` de `ask()` ao teto. `ask_json` (quiz/trilha) fica de fora — precisa caber inteiro.
+- `db._USER_COLS`: JOIN agora traz `coach_note` também. Call sites de `persona()` passam `user["coach_note"]`.
+- Web: `/admin/aristotelia` em 2 seções; `/ajustes` nova (tom + pedido); `/api/prefs` aceita `coachNote`; sidebar tem "Ajustes" pra todos; picker de tom saiu de `/lembretes`.
+- Testado: `token_cap()=600`, "conselho médico" no persona de todo mundo.
+
 **Ainda por fazer:**
 1. Fase 2 itens 3-4: e-mail · Google Calendar. Trilha adaptativa. Dashboard de evolução completo.
 2. Memória mais longa (a bot lembrar "ontem você travou em X") — hoje só 14 msgs.
-3. Merge `fase-1` → `main` + reescrever `Claude.md`.
+3. Merge `fase-1` → `main` + reescrever `Claude.md`. Nav lateral já tem 8 itens — na barra mobile pode apertar.
 2. Merge `fase-1` → `main` + reescrever `Claude.md` (arquitetura Fase 1/2 completa).
 3. Domínio próprio → Caddy + named tunnel (URL estável, e a PWA precisa de HTTPS estável pro push não quebrar).
 4. Validação: 20-30 pessoas da beachhead.
