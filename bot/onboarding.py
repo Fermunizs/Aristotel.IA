@@ -78,6 +78,7 @@ async def _finish(context: ContextTypes.DEFAULT_TYPE, user, answers: dict) -> No
 
     await db.create_plan(user["id"], answers["goal"], answers["level"], weeks)
     await db.save_prefs(user["id"], minutes_per_day=answers["minutes"])
+    await db.create_default_reminders(user["id"])
     await db.set_pending(user["id"], None)
     await db.set_status(user["id"], "active")
 

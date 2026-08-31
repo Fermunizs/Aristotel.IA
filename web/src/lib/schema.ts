@@ -93,6 +93,26 @@ export const contentIdeas = pgTable("content_ideas", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
 });
 
+export const reminders = pgTable("reminders", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull(),
+  kind: text("kind").notNull(),
+  customText: text("custom_text"),
+  scheduleType: text("schedule_type").notNull(),
+  atTime: time("at_time"),
+  period: text("period"),
+  days: jsonb("days").notNull(),
+  channel: text("channel").notNull(),
+  enabled: boolean("enabled").notNull(),
+  sortOrder: integer("sort_order").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }),
+});
+
+export const botState = pgTable("bot_state", {
+  userId: uuid("user_id").primaryKey(),
+  remindersDirty: boolean("reminders_dirty").notNull(),
+});
+
 export const streaks = pgTable("streaks", {
   userId: uuid("user_id").notNull(),
   kind: text("kind").notNull(),

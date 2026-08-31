@@ -137,6 +137,16 @@ async def daily_review(context: ContextTypes.DEFAULT_TYPE) -> None:
     await db.set_pending(user["id"], {"type": "review"})
 
 
+async def free_reminder(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Lembrete livre — texto que a própria pessoa escreveu."""
+    user, chat = await _ctx(context)
+    if not user:
+        return
+    txt = (context.job.data.get("custom_text") or "").strip()
+    if txt:
+        await send_text(context.bot, chat, f"⏰ {txt}")
+
+
 def _advance_day(plan: dict) -> None:
     cur = plan["current"]
     week = next((w for w in plan["weeks"] if w["n"] == cur["week"]), None)
@@ -153,4 +163,5 @@ JOBS = {
     "daily_insight": daily_insight,
     "application_challenge": application_challenge,
     "daily_review": daily_review,
+    "free_reminder": free_reminder,
 }

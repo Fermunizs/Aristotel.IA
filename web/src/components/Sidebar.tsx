@@ -8,6 +8,7 @@ const NAV = [
   { href: "/", label: "Hoje", icon: HojeIcon },
   { href: "/trilha", label: "Trilha", icon: TrilhaIcon },
   { href: "/foco", label: "Foco", icon: FocoIcon },
+  { href: "/lembretes", label: "Lembretes", icon: LembreteIcon },
   { href: "/evolucao", label: "Evolução", icon: EvolucaoIcon },
 ];
 
@@ -114,5 +115,6 @@ const S = { width: 18, height: 18, viewBox: "0 0 24 24", fill: "none", stroke: "
 function HojeIcon() { return <svg {...S}><path d="M4 20c3-1 5-1 8 0s5 1 8 0" /><circle cx="12" cy="8" r="3.5" /><path d="M12 4v1M12 11v1M8 8H7M17 8h-1" /></svg>; }
 function TrilhaIcon() { return <svg {...S}><path d="M7 20c0-4-4-4-4-8s5-3 5-6 4-3 6 0 3 5 0 8-4 3-4 6" /><circle cx="6" cy="14" r="1" /><circle cx="14" cy="9" r="1" /></svg>; }
 function FocoIcon() { return <svg {...S}><circle cx="12" cy="13" r="7" /><path d="M12 6c-1-2-3-3-5-3 1 1 1 2 0 3M12 6c1-2 3-3 5-3-1 1-1 2 0 3" /></svg>; }
+function LembreteIcon() { return <svg {...S}><path d="M6 10a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6M10 20a2 2 0 0 0 4 0" /></svg>; }
 function EvolucaoIcon() { return <svg {...S}><path d="M4 18h16M6 18v-4M11 18v-8M16 18v-6M21 18V8" /></svg>; }
 function AdminIcon() { return <svg {...S}><circle cx="9" cy="8" r="3" /><circle cx="16" cy="10" r="2.5" /><path d="M4 19c0-3 2-5 5-5s5 2 5 5M14 19c0-2 1-3.5 2.5-3.5" /></svg>; }

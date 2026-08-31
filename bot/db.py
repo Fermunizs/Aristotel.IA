@@ -312,6 +312,51 @@ async def create_auth_code(user_id) -> str:
     return code
 
 
+# ── lembretes ───────────────────────────────────────────────────────
+_DEFAULT_REMINDERS = [
+    ("motivacao", "06:00", 0), ("guia", "08:00", 1), ("pilula", "09:00", 2),
+    ("quiz", "10:30", 3), ("insight", "15:00", 4), ("desafio", "16:00", 5),
+    ("checkin_noite", "20:00", 6),
+]
+
+
+async def get_reminders(user_id) -> list[asyncpg.Record]:
+    async with pool().acquire() as con:
+        rows = await con.fetch(
+            "SELECT * FROM reminders WHERE user_id = $1 AND enabled ORDER BY sort_order", user_id
+        )
+    out = []
+    for r in rows:
+        d = dict(r)
+        d["days"] = _j(d["days"])
+        out.append(d)
+    return out
+
+
+async def create_default_reminders(user_id) -> None:
+    async with pool().acquire() as con:
+        exists = await con.fetchval("SELECT 1 FROM reminders WHERE user_id = $1 LIMIT 1", user_id)
+        if exists:
+            return
+        await con.executemany(
+            "INSERT INTO reminders (user_id, kind, at_time, sort_order) VALUES ($1, $2, $3, $4)",
+            [(user_id, k, t, o) for k, t, o in _DEFAULT_REMINDERS],
+        )
+
+
+async def dirty_reminder_users() -> list[asyncpg.Record]:
+    async with pool().acquire() as con:
+        return await con.fetch(
+            """SELECT u.* FROM users u JOIN bot_state b ON b.user_id = u.id
+               WHERE b.reminders_dirty AND u.status = 'active' AND u.telegram_chat_id IS NOT NULL"""
+        )
+
+
+async def clear_reminders_dirty(user_id) -> None:
+    async with pool().acquire() as con:
+        await con.execute("UPDATE bot_state SET reminders_dirty = false WHERE user_id = $1", user_id)
+
+
 # ── outbox (web → bot) ───────────────────────────────────────────────
 async def pop_outbox() -> list[asyncpg.Record]:
     async with pool().acquire() as con:

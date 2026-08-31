@@ -54,27 +54,32 @@ WEB_URL = os.getenv("WEB_URL", "http://localhost:3000").strip().rstrip("/")
 _sa = os.getenv("SUPERADMIN_CHAT_ID", "").strip()
 SUPERADMIN_CHAT_ID = int(_sa) if _sa.lstrip("-").isdigit() else None
 
-# --- Horários padrão das funções (hora local do usuário) ----------------
-# Fase 1: horários fixos; cada usuário só liga/desliga funções e tem seu fuso.
-# Personalizar horário por usuário = v2.
-DEFAULT_TIMES: dict[str, time] = {
-    "daily_motivation": time(6, 0),
-    "daily_learning_guide": time(8, 0),
-    "micro_learning": time(9, 0),
-    "learning_check": time(10, 30),
-    "daily_insight": time(15, 0),
-    "application_challenge": time(16, 0),
-    "daily_review": time(20, 0),
-    # domingo (checam weekday() dentro do callback)
+# --- Lembretes: kind do lembrete -> função que executa -----------------
+REMINDER_JOBS: dict[str, str] = {
+    "motivacao": "daily_motivation",
+    "guia": "daily_learning_guide",
+    "pilula": "micro_learning",
+    "quiz": "learning_check",
+    "insight": "daily_insight",
+    "desafio": "application_challenge",
+    "checkin_manha": "daily_motivation",
+    "checkin_noite": "daily_review",
+    "livre": "free_reminder",
+}
+
+# schedule_type='periodo' -> hora local
+PERIOD_TIMES: dict[str, time] = {
+    "manha": time(8, 0),
+    "tarde": time(15, 0),
+    "noite": time(20, 0),
+}
+
+# jobs de domingo continuam fixos (não são lembretes configuráveis por ora)
+WEEKLY_TIMES: dict[str, time] = {
     "weekly_review": time(10, 0),
     "content_planner": time(11, 0),
     "advance_week": time(11, 5),
 }
-
-DAILY_FUNCTIONS = [
-    "daily_motivation", "daily_learning_guide", "micro_learning", "learning_check",
-    "daily_insight", "application_challenge", "daily_review",
-]
-WEEKLY_FUNCTIONS = ["weekly_review", "content_planner", "advance_week"]
+WEEKLY_FUNCTIONS = list(WEEKLY_TIMES)
 
 SUNDAY = 6  # datetime.weekday(): segunda=0 ... domingo=6

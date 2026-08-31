@@ -17,7 +17,14 @@ async def _post_init(app: Application) -> None:
     await db.connect()
     await scheduling.schedule_all(app)
     app.job_queue.run_repeating(_outbox_tick, interval=15, first=10, name="outbox")
+    app.job_queue.run_repeating(_resync_tick, interval=60, first=30, name="resync")
     log.info("Aristótel.IA no ar. LLM: %s (%s)", config.LLM_PROVIDER, config.LLM_MODEL)
+
+
+async def _resync_tick(context) -> None:
+    n = await scheduling.resync_dirty(context.application)
+    if n:
+        log.info("Re-agendados %d usuários (lembretes mudaram)", n)
 
 
 async def _post_shutdown(app: Application) -> None:
