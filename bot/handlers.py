@@ -1,203 +1,232 @@
-"""Comandos do bot e roteamento das respostas de texto."""
+"""Comandos do bot e roteamento das respostas de texto — multiusuário."""
 from __future__ import annotations
 
-import asyncio
 import logging
 
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from . import jobs, llm, prompts, storage
+from . import config, db, llm, onboarding, prompts
+from .util import ask, ask_json, now_for, send_text
 
 log = logging.getLogger("aristotelia.handlers")
 
-WELCOME = (
-    "🌅 *Aristótel.IA* — sua treinadora de evolução 1%.\n\n"
-    "A partir de agora eu te acompanho todo dia:\n"
-    "06:00 motivação · 08:00 o que estudar · 09:00 pílula · 10:30 quiz · "
-    "15:00 insight · 16:00 desafio · 20:00 fechamento.\n\n"
-    "Domingo: revisão da semana e ideias de conteúdo.\n\n"
-    "Comandos: /hoje /jasei /skip /plano /status /conteudo"
-)
-
 
 async def _reply(update: Update, text: str) -> None:
-    await jobs.send_text(update.get_bot(), update.effective_chat.id, text)
+    await send_text(update.get_bot(), update.effective_chat.id, text)
 
 
-# --- comandos ----------------------------------------------------------
+async def _me(update: Update):
+    u = update.effective_user
+    return await db.get_or_create_user(update.effective_chat.id, u.username if u else None,
+                                       (u.full_name if u else None))
+
+
+# ── comandos ─────────────────────────────────────────────────────────
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    prog = storage.load("progress")
-    prog["chat_id"] = update.effective_chat.id
-    if not prog.get("started_at"):
-        prog["started_at"] = storage.now().isoformat()
-    storage.save("progress", prog)
-    await _reply(update, WELCOME)
+    user = await _me(update)
+    if config.SUPERADMIN_CHAT_ID and user["telegram_chat_id"] == config.SUPERADMIN_CHAT_ID \
+            and user["role"] != "superadmin":
+        await db.pool().execute("UPDATE users SET role='superadmin' WHERE id=$1", user["id"])
+    if user["status"] == "onboarding":
+        await onboarding.start(update, context, user)
+    else:
+        await _reply(update, "🌅 Já tá tudo rodando. /hoje pra ver o de hoje, /plano pra ver a trilha.")
 
 
 async def cmd_hoje(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await jobs.daily_learning_guide(context)
+    from .jobs import daily_learning_guide
+    user = await _me(update)
+    if user["status"] != "active":
+        return await _reply(update, "Manda /start pra montar sua trilha primeiro.")
+
+    class _J:  # mini-shim pro job callback
+        data = {"user_id": str(user["id"])}
+    context.job = _J()
+    await daily_learning_guide(context)
 
 
 async def cmd_jasei(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    plan = storage.load("learning_plan")
-    day = _current_day(plan)
-    if day:
-        known = plan.setdefault("known_topics", [])
-        if day["topic"] not in known:
-            known.append(day["topic"])
+    user = await _me(update)
+    plan = await db.get_plan(user["id"])
+    if not plan:
+        return await _reply(update, "Você ainda não tem trilha. /start")
+    topic = prompts.today_topic(plan)
+    if topic:
+        await db.add_known_topic(user["id"], topic["topic"])
     _advance(plan)
-    storage.save("learning_plan", plan)
-    await _reply(update, "✅ Beleza, pulei esse. Próximo tópico vem no /hoje.")
+    await db.update_plan_position(user["id"], plan["current"]["week"], plan["current"]["day"])
+    await _reply(update, "✅ Pulei esse. Próximo tópico vem no /hoje.")
 
 
 async def cmd_skip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    plan = storage.load("learning_plan")
+    user = await _me(update)
+    plan = await db.get_plan(user["id"])
+    if not plan:
+        return await _reply(update, "Você ainda não tem trilha. /start")
     _advance(plan)
-    storage.save("learning_plan", plan)
+    await db.update_plan_position(user["id"], plan["current"]["week"], plan["current"]["day"])
     await _reply(update, "⏭️ Pulei pro próximo dia da trilha.")
 
 
 async def cmd_plano(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    plan = storage.load("learning_plan")
-    cur = plan.get("current", {"week": 1, "day": 1})
-    linhas = ["🗺️ *Trilha*\n"]
-    for w in plan.get("weeks", []):
+    user = await _me(update)
+    plan = await db.get_plan(user["id"])
+    if not plan:
+        return await _reply(update, "Você ainda não tem trilha. /start")
+    cur = plan["current"]
+    linhas = [f"🗺️ *Trilha* — {plan['goal']}\n"]
+    for w in plan["weeks"]:
         marca = "👉" if w["n"] == cur["week"] else "  "
         linhas.append(f"{marca} *Semana {w['n']}* — {w['theme']}")
-        for d in w.get("days", []):
+        for d in w["days"]:
             aqui = " ⬅️ hoje" if (w["n"] == cur["week"] and d["d"] == cur["day"]) else ""
             linhas.append(f"     {d['d']}. {d['topic']}{aqui}")
     await _reply(update, "\n".join(linhas))
 
 
 async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    prog = storage.load("progress")
-    plan = storage.load("learning_plan")
-    cur = plan.get("current", {"week": 1, "day": 1})
-    n = len(storage.load("daily_log").get("entries", []))
+    user = await _me(update)
+    plan = await db.get_plan(user["id"])
+    streak = await db.get_streak(user["id"])
+    day = now_for(user).date()
+    tasks = await db.get_tasks(user["id"], day)
+    done = sum(1 for t in tasks if t["status"] == "done")
+    pos = f"semana {plan['current']['week']}, dia {plan['current']['day']}" if plan else "sem trilha"
     await _reply(
         update,
-        f"📊 *Status*\n\n"
-        f"Streak: {prog.get('streak', 0)} dia(s)\n"
-        f"Trilha: semana {cur['week']}, dia {cur['day']}\n"
-        f"Registros: {n}",
+        f"📊 *Status*\n\nStreak: {streak['current']} dia(s) (recorde {streak['best']})\n"
+        f"Trilha: {pos}\nChecklist de hoje: {done}/{len(tasks)}",
     )
 
 
 async def cmd_conteudo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    storage.set_pending({"type": "content_idea"})
+    user = await _me(update)
+    await db.set_pending(user["id"], {"type": "content_idea"})
     await _reply(update, "💡 Qual é a ideia de conteúdo? Manda em 1 frase.")
 
 
-# --- roteamento de texto --------------------------------------------
+async def cmd_foco(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user = await _me(update)
+    args = context.args or []
+    minutes = 25
+    if args and args[0].isdigit():
+        minutes = max(5, min(90, int(args[0])))
+    sid = await db.start_focus(user["id"], minutes)
+    context.job_queue.run_once(
+        _focus_done, minutes * 60,
+        data={"user_id": str(user["id"]), "sid": str(sid), "minutes": minutes, "chat": user["telegram_chat_id"]},
+        name=f"{user['id']}:focus",
+    )
+    await _reply(update, f"⏳ Foco de {minutes} min começando. Silêncio até acabar. Bora.")
+
+
+async def _focus_done(context: ContextTypes.DEFAULT_TYPE) -> None:
+    d = context.job.data
+    await db.end_focus(d["sid"], completed=True)
+    user = await db.get_user(d["user_id"])
+    await db.log_event(user["id"], "foco", now_for(user).date(), {"minutos": d["minutes"]})
+    await send_text(context.bot, d["chat"], f"✅ {d['minutes']} min de foco no bolso. Anota o que avançou.")
+
+
+async def cmd_painel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user = await _me(update)
+    code = await db.create_auth_code(user["id"])
+    await _reply(update, f"🔑 Seu código (vale 10 min):\n\n`{code}`\n\nEntra em {config.WEB_URL}")
+
+
+# ── roteamento de texto ─────────────────────────────────────────────
 async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user = await _me(update)
     text = (update.message.text or "").strip()
-    pending = storage.get_pending() or {}
+    pending = await db.get_pending(user["id"]) or {}
     ptype = pending.get("type")
 
-    if ptype == "quiz":
-        await _handle_quiz(update, pending, text)
+    if ptype == "onboarding":
+        await onboarding.handle(update, context, user, pending)
+    elif ptype == "quiz":
+        await _quiz(update, user, pending, text)
+    elif ptype == "challenge_done":
+        await _challenge(update, user, text)
     elif ptype == "review":
-        await _handle_review(update, text)
+        await _review(update, user, text)
     elif ptype == "content_confirm":
-        await _handle_content_confirm(update, text)
+        await _content_confirm(update, user, text)
     elif ptype == "content_idea":
-        await _handle_content_idea(update, text)
+        await _content_idea(update, user, text)
     else:
-        resposta = await asyncio.to_thread(
-            llm.generate,
-            prompts.PERSONA,
-            f"A Fernanda te mandou: {text}\nResponda como treinadora: direto, sincero, sem textão.",
-            max_tokens=500,
-        )
-        await _reply(update, llm.tidy(resposta))
+        plan = await db.get_plan(user["id"])
+        goal = plan["goal"] if plan else None
+        resp = await ask(prompts.persona(user["name"], goal),
+                         f"A pessoa te mandou: {text}\nResponda como treinadora: direto, sincero, sem textão.",
+                         max_tokens=500)
+        await _reply(update, resp)
 
 
-async def _handle_quiz(update: Update, pending: dict, text: str) -> None:
+async def _quiz(update: Update, user, pending: dict, text: str) -> None:
     escolha = next((c for c in text.upper() if c in "ABC"), None)
     if not escolha:
-        await _reply(update, "Responde só com A, B ou C.")
-        return
-    correta = pending.get("correta", "")
-    acertou = escolha == correta
-    storage.log_event("quiz", topic=pending.get("topico", ""), result="acerto" if acertou else "erro")
-    storage.set_pending(None)
+        return await _reply(update, "Responde só com A, B ou C.")
+    acertou = escolha == pending.get("correta", "")
+    day = now_for(user).date()
+    await db.log_event(user["id"], "quiz", day,
+                       {"topico": pending.get("topico", ""), "resultado": "acerto" if acertou else "erro"})
+    await db.set_pending(user["id"], None)
     exp = pending.get("explicacao", "")
-    if acertou:
-        await _reply(update, f"✅ Isso. {exp}")
-    else:
-        await _reply(update, f"❌ Era *{correta}*. {exp}")
+    await _reply(update, (f"✅ Isso. {exp}" if acertou else f"❌ Era *{pending.get('correta')}*. {exp}"))
 
 
-async def _handle_review(update: Update, text: str) -> None:
-    data = storage.now().strftime("%d/%m")
-    card = llm.tidy(
-        await asyncio.to_thread(
-            llm.generate,
-            prompts.PERSONA + "\n\n" + prompts.REVIEW_FORMAT.replace("{data}", data),
-            f"Resposta da Fernanda:\n{text}",
-            temperature=0.6,
-            max_tokens=500,
-        )
-    )
-    prog = storage.load("progress")
-    hoje = storage.today_str()
-    if prog.get("last_review_date") != hoje:
-        prog["streak"] = prog.get("streak", 0) + 1
-        prog["last_review_date"] = hoje
-    storage.save("progress", prog)
-    storage.log_event("review", raw=text)
+async def _challenge(update: Update, user, text: str) -> None:
+    day = now_for(user).date()
+    await db.auto_complete(user["id"], day, "desafio")
+    await db.log_event(user["id"], "desafio", day, {"nota": text[:300]})
+    await db.set_pending(user["id"], None)
+    await _reply(update, "🛠️ Marquei o desafio como feito. Amanhã tem mais.")
+
+
+async def _review(update: Update, user, text: str) -> None:
+    data_str = now_for(user).strftime("%d/%m")
+    plan = await db.get_plan(user["id"])
+    goal = plan["goal"] if plan else None
+    card = await ask(prompts.persona(user["name"], goal) + "\n\n" + prompts.REVIEW_FORMAT.replace("{data}", data_str),
+                     f"Resposta da pessoa:\n{text}", label=True, temperature=0.6, max_tokens=450)
+    day = now_for(user).date()
+    new_streak = await db.bump_streak(user["id"], day)
+    await db.log_event(user["id"], "review", day, {"raw": text[:500]})
+    await db.auto_complete(user["id"], day, "trilha")
     await _reply(update, card)
-    storage.set_pending({"type": "content_confirm"})
-    await _reply(update, "💡 Isso pode virar conteúdo? (sim / não)")
+    await _reply(update, f"🔥 Streak: {new_streak} dia(s).\n\n💡 Isso pode virar conteúdo? (sim / não)")
+    await db.set_pending(user["id"], {"type": "content_confirm"})
 
 
-async def _handle_content_confirm(update: Update, text: str) -> None:
-    if text.lower().startswith(("s", "sim", "y")):
-        storage.set_pending({"type": "content_idea"})
+async def _content_confirm(update: Update, user, text: str) -> None:
+    if text.lower().startswith(("s", "y")):
+        await db.set_pending(user["id"], {"type": "content_idea"})
         await _reply(update, "Qual foi a ideia? Manda em 1 frase.")
     else:
-        storage.set_pending(None)
+        await db.set_pending(user["id"], None)
         await _reply(update, "Fechado. Amanhã a gente sobe 1%.")
 
 
-async def _handle_content_idea(update: Update, text: str) -> None:
-    info = await asyncio.to_thread(
-        llm.generate_json, prompts.PERSONA + "\n\n" + prompts.CONTENT_CLASSIFY, text, max_tokens=250
-    ) or {}
-    bank = storage.load("content_bank")
-    bank["ideas"].append(
-        {
-            "tema": info.get("tema") or text[:60],
-            "tipo": info.get("tipo", ""),
-            "formato": info.get("formato", ""),
-            "titulo": info.get("titulo", ""),
-            "origem": storage.today_str(),
-            "nota": text,
-        }
+async def _content_idea(update: Update, user, text: str) -> None:
+    info = await ask_json(prompts.persona(user["name"]) + "\n\n" + prompts.CONTENT_CLASSIFY, text,
+                          max_tokens=300) or {}
+    await db.add_content_idea(
+        user["id"], theme=info.get("tema") or text[:60], type=info.get("tipo", ""),
+        format=info.get("formato", ""), title=info.get("titulo", ""), note=text,
+        origin_date=now_for(user).date(),
     )
-    storage.save("content_bank", bank)
-    storage.set_pending(None)
-    titulo = info.get("titulo", "")
-    fmt = info.get("formato", "post")
-    await _reply(update, f"📦 Salvo no banco de conteúdo.\nSugestão: *{fmt}* — \"{titulo}\"")
+    await db.set_pending(user["id"], None)
+    await _reply(update, f"📦 Salvo no banco de conteúdo.\nSugestão: *{info.get('formato', 'post')}* — "
+                         f"\"{info.get('titulo', '')}\"")
 
 
-# --- helpers de trilha --------------------------------------------
-def _current_day(plan: dict):
-    cur = plan.get("current", {"week": 1, "day": 1})
-    week = next((w for w in plan.get("weeks", []) if w["n"] == cur["week"]), None)
-    if not week:
-        return None
-    return next((d for d in week["days"] if d["d"] == cur["day"]), None)
-
-
+# ── helper de trilha ────────────────────────────────────────────────
 def _advance(plan: dict) -> None:
-    cur = plan.setdefault("current", {"week": 1, "day": 1})
-    week = next((w for w in plan.get("weeks", []) if w["n"] == cur["week"]), None)
+    cur = plan["current"]
+    week = next((w for w in plan["weeks"] if w["n"] == cur["week"]), None)
     total = len(week["days"]) if week else 5
-    max_week = max((w["n"] for w in plan.get("weeks", [])), default=cur["week"])
+    max_week = max((w["n"] for w in plan["weeks"]), default=cur["week"])
     if cur["day"] < total:
         cur["day"] += 1
     elif cur["week"] < max_week:

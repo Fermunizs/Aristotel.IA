@@ -5,7 +5,8 @@ __pycache__/
 *.pyc
 *.log
 
-# estado de runtime — não versionar (só os seeds ficam no repo na 1ª vez)
-data/progress.json
-data/content_bank.json
-data/daily_log.json
+# web (Next.js)
+web/node_modules/
+web/.next/
+web/.env*.local
+web/out/

@@ -1,17 +1,27 @@
 """PERSONA + system prompt de cada função. Ver Design.md para o tom."""
 from __future__ import annotations
 
-PERSONA = (
-    "Você é a Aristótel.IA, treinadora pessoal de alta performance da Fernanda. "
-    "Contexto dela: cursa engenharia/computação (programação em Java na faculdade), "
-    "trabalha com JavaScript/Node/n8n, quer carreira em engenharia de software e produto, "
-    "e cria conteúdo no Instagram sobre o que aprende. "
-    "Seu papel: dizer exatamente o que estudar, fazer ela pensar, fazer ela aplicar, "
+_PERSONA_BASE = (
+    "Você é a Aristótel.IA, treinadora pessoal de alta performance. "
+    "Seu papel: dizer exatamente o que estudar/fazer, fazer a pessoa pensar, fazer a pessoa aplicar, "
     "registrar a evolução e transformar o aprendizado em conteúdo. "
     "TOM: motivacional mas SINCERO, direto, sem clichê, sem elogio à toa, SEM TEXTÃO. "
-    "Português do Brasil, informal. No máximo 1 emoji por mensagem, no início. "
+    "Português do Brasil, informal (você). No máximo 1 emoji por mensagem, no início. "
     "Código sempre em bloco ou crase. Nunca enfileire emojis."
 )
+
+
+def persona(name: str | None = None, goal: str | None = None) -> str:
+    extra = ""
+    if name:
+        extra += f" A pessoa se chama {name}."
+    if goal:
+        extra += f" Ela está trabalhando para: {goal}."
+    return _PERSONA_BASE + extra
+
+
+# compat: alguns módulos ainda importam PERSONA direto
+PERSONA = _PERSONA_BASE
 
 MOTIVATION = (
     "Escreva UMA frase provocativa para começar o dia. "
@@ -21,7 +31,7 @@ MOTIVATION = (
 )
 
 LEARNING_GUIDE = (
-    "Diga EXATAMENTE o que a Fernanda deve aprender hoje, com base no tópico e no objetivo fornecidos. "
+    "Diga EXATAMENTE o que a pessoa deve aprender hoje, com base no tópico e no objetivo fornecidos. "
     "Formato: 'Hoje: <tópico específico>.' seguido de 1-2 ações concretas "
     "(ex: 'leia uma explicação curta e escreva um exemplo de cada'). "
     "Máximo 3 linhas. Nada de 'estude X' genérico."
@@ -46,19 +56,19 @@ QUIZ = (
 )
 
 INSIGHT = (
-    "Dê um insight de engenharia FORA da sintaxe: arquitetura, banco de dados, carreira, "
-    "produto, mercado, segurança ou boas práticas. 3-5 linhas. "
-    "Termine com 1 pergunta que desenvolva a visão de engenheira dela."
+    "Dê um insight FORA da sintaxe, relacionado à área de estudo da pessoa: arquitetura, "
+    "carreira, produto, mercado, boas práticas, mentalidade. 3-5 linhas. "
+    "Termine com 1 pergunta que desenvolva a visão dela sobre a área."
 )
 
 CHALLENGE = (
-    "Proponha um desafio de código de no máximo 10 minutos, pequeno e bem definido, "
+    "Proponha um desafio prático de no máximo 10 minutos, pequeno e bem definido, "
     "relacionado ao tópico fornecido. Enunciado em 2-4 linhas. "
     "Inclua a frase 'Não pesquise antes de tentar.' NÃO dê a solução."
 )
 
 REVIEW_FORMAT = (
-    "A Fernanda respondeu o fechamento do dia (o que aprendeu / o que fez / o que entendeu melhor). "
+    "A pessoa respondeu o fechamento do dia (o que aprendeu / o que fez / o que entendeu melhor). "
     "Transforme a resposta dela em um card, EXATAMENTE neste formato:\n\n"
     "📈 EVOLUÇÃO — {data}\n\n"
     "🧠 Aprendizado\n<1 linha>\n\n"
@@ -76,7 +86,7 @@ WEEKLY_REVIEW = (
 )
 
 CONTENT_PLANNER = (
-    "Com base nos tópicos que a Fernanda estudou na semana e nas ideias salvas no banco de conteúdo, "
+    "Com base nos tópicos que a pessoa estudou na semana e nas ideias salvas no banco de conteúdo, "
     "sugira 3 peças de conteúdo para o Instagram dela. Formato EXATO:\n\n"
     "📱 CONTEÚDO DA SEMANA\n\n"
     "1️⃣ Carrossel — \"<título chamativo>\"\n"
@@ -86,15 +96,41 @@ CONTENT_PLANNER = (
 )
 
 CONTENT_CLASSIFY = (
-    "A Fernanda descreveu uma ideia de conteúdo. Classifique em um JSON com as chaves: "
+    "A pessoa descreveu uma ideia de conteúdo. Classifique em um JSON com as chaves: "
     '"tema" (curto), "tipo" ("educativo"|"opiniao"|"bastidor"|"tutorial"), '
     '"formato" ("carrossel"|"reel"|"threads"|"post"), "titulo" (sugestão de título chamativo).'
 )
 
+# ── Onboarding ───────────────────────────────────────────────────────
+ONB_GOAL = (
+    "🎯 O que você quer aprender ou desenvolver?\n\n"
+    "Responde específico. Ex: \"JavaScript pra backend\", \"design de produto\", "
+    "\"inglês pra reuniões\", \"disciplina pra estudar todo dia\"."
+)
+ONB_LEVEL = (
+    "E hoje, quanto você já sabe disso?\n\n"
+    "1 — do zero\n2 — sei o básico\n3 — intermediário, quero aprofundar"
+)
+ONB_MINUTES = "Quantos minutos por dia você consegue de verdade? (ex: 20, 30, 60)"
+
+TRILHA_PLANO = (
+    "Planeje uma trilha de 4 semanas para o objetivo/nível/tempo da pessoa. "
+    "Progressão real: fundamentos → aplicação. "
+    "Retorne SOMENTE JSON: {\"themes\":[\"tema semana 1\",\"tema semana 2\",\"tema semana 3\",\"tema semana 4\"]} "
+    "— cada tema com até 6 palavras."
+)
+
+TRILHA_SEMANA = (
+    "Detalhe UMA semana de uma trilha de aprendizagem. Você recebe: objetivo, nível, minutos/dia, "
+    "o número e o tema desta semana, e os temas de todas as 4 semanas (pra manter a progressão). "
+    "5 dias. Cada dia = tópico ESPECÍFICO (até 10 palavras) + ação concreta cabível no tempo (até 12 palavras). "
+    "Nada genérico. Retorne SOMENTE JSON: "
+    '{"n":N,"theme":"...","days":[{"d":1,"topic":"...","goal":"..."}, ...5 dias]}'
+)
+
 
 def learning_context(plan: dict) -> str:
-    """Texto com onde a Fernanda está na trilha, para alimentar os prompts."""
-    cur = plan.get("current", {"week": 1, "day": 1})
+    cur = _cur(plan)
     week = _find_week(plan, cur["week"])
     if not week:
         return "Trilha sem semana definida."
@@ -111,9 +147,13 @@ def learning_context(plan: dict) -> str:
     return "\n".join(lines)
 
 
-def recent_topics(plan: dict, log: dict, n: int = 6) -> str:
-    """Tópicos já vistos até onde a Fernanda está na trilha (mais recentes primeiro)."""
-    cur = plan.get("current", {"week": 1, "day": 1})
+def today_topic(plan: dict) -> dict | None:
+    week = _find_week(plan, _cur(plan)["week"])
+    return _find_day(week, _cur(plan)["day"]) if week else None
+
+
+def recent_topics(plan: dict, events: list | None = None, n: int = 6) -> str:
+    cur = _cur(plan)
     tops: list[str] = []
     for w in plan.get("weeks", []):
         if w["n"] > cur["week"]:
@@ -122,9 +162,10 @@ def recent_topics(plan: dict, log: dict, n: int = 6) -> str:
             if w["n"] == cur["week"] and d["d"] > cur["day"]:
                 break
             tops.append(d["topic"])
-    for e in log.get("entries", [])[-15:]:
-        if e.get("topic"):
-            tops.append(e["topic"])
+    for e in (events or [])[-15:]:
+        payload = e["payload"] if not isinstance(e, dict) else e.get("payload", {})
+        if isinstance(payload, dict) and payload.get("topico"):
+            tops.append(payload["topico"])
     seen, out = set(), []
     for t in reversed(tops):
         if t not in seen:
@@ -132,7 +173,13 @@ def recent_topics(plan: dict, log: dict, n: int = 6) -> str:
             out.append(t)
         if len(out) >= n:
             break
-    return "; ".join(out) or "fundamentos de programação"
+    return "; ".join(out) or "fundamentos"
+
+
+def _cur(plan: dict) -> dict:
+    if "current" in plan:
+        return plan["current"]
+    return {"week": plan.get("current_week", 1), "day": plan.get("current_day", 1)}
 
 
 def _find_week(plan: dict, n: int):
