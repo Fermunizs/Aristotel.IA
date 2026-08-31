@@ -186,9 +186,18 @@ Bug reportado pela Fernanda: pediu ajuda no desafio → a bot respondeu "marquei
 - Desafio: o `pending` agora guarda o texto do desafio (`{type:'challenge', text, day}`). No `on_text`, a bot **conversa** — ajuda com pista (não entrega solução), dá feedback em tentativa — e só faz `auto_complete('desafio')` se a mensagem tiver "terminei/consegui/feito/pronto/acabei/fiz/resolvi/...". `application_challenge` também empurra o desafio pro `history`.
 - Testado: "me ajuda, não lembro como declara método boolean" → a bot respondeu com o `passou()` do desafio + uma pista, sem entregar tudo.
 
+## 2026-08-31 — painel pra editar a identidade da Aristótel.IA
+
+- `db/migrations/0005_settings.sql`: `app_settings` (key/value) com 4 chaves + defaults: `identidade`, `objetivo`, `tom`, `sempre`.
+- `bot/coach.py`: `persona(name, goal)` monta o system prompt a partir dos settings, com **cache TTL 120s**. `main._post_init` chama `coach.refresh()` + `_coach_tick` a cada 120s. `prompts.persona` virou shim → `coach.persona` (nenhum call site mudou).
+- **Web** `/admin/aristotelia` (só superadmin): 4 textareas (Quem ela é · Objetivo principal · Tom de voz · Sempre respeitar) + `/api/admin/settings` GET/PUT. Sidebar do superadmin agora tem "Pessoas" (`/admin`) e "Ajustar IA" (`/admin/aristotelia`).
+- Editar no painel → o bot aplica em ~2 min (testado e2e).
+- **Futuro:** personalidade da treinadora **por usuário** (a pessoa escolhe durão × gentil) construiria em cima disso; hoje é global.
+
 **Ainda por fazer:**
 1. Fase 2 itens 3-4: e-mail · Google Calendar. Trilha adaptativa. Dashboard de evolução completo.
 2. Memória mais longa (a bot lembrar "ontem você travou em X") — hoje só 14 msgs; o resto está em `events` + review semanal.
+3. Personalidade do coach por usuário (em cima do `app_settings`).
 2. Merge `fase-1` → `main` + reescrever `Claude.md` (arquitetura Fase 1/2 completa).
 3. Domínio próprio → Caddy + named tunnel (URL estável, e a PWA precisa de HTTPS estável pro push não quebrar).
 4. Validação: 20-30 pessoas da beachhead.
