@@ -219,10 +219,20 @@ Estrutura de config em **3 níveis** (pedido da Fernanda):
 - Web: `/admin/aristotelia` em 2 seções; `/ajustes` nova (tom + pedido); `/api/prefs` aceita `coachNote`; sidebar tem "Ajustes" pra todos; picker de tom saiu de `/lembretes`.
 - Testado: `token_cap()=600`, "conselho médico" no persona de todo mundo.
 
+## 2026-08-31 — níveis de acesso + planos + 2º usuário
+
+- **Mesmo bot é multiusuário** — qualquer pessoa entra dando `/start` em `t.me/AristotelIA_bot` (o namorado da Fernanda vai ser o usuário nº 2). Não precisa de bot novo / token novo.
+- `db/migrations/0008_roles_plans.sql`: `users.role` → `user | admin | superadmin`; `users.plan` → `free | pro | unlimited`.
+- **Roles:** `user` = só painel próprio · `admin` = vê `/admin` (pessoas + impersonar), NÃO vê `/admin/aristotelia` · `superadmin` = tudo.
+- **Web `/admin`:** coluna "Acesso" com dropdowns role + plan por pessoa (só superadmin muda; não rebaixa a si mesma nem mexe em outro superadmin). `/api/admin/user` PATCH.
+- **Limite de lembretes por plano** no `POST /api/reminders`: free=5, pro=30, unlimited=∞. Erro 402 mostrado no form.
+- Sidebar: "Pessoas" pra admin+super, "Ajustar IA" só super. `(app)/layout` passa `role` pro Sidebar.
+- Bot: `_USER_COLS` já traz `plan` (via `u.*`). Token cap segue global (não muda por plano — mensagens de coaching são curtas de propósito).
+
 **Ainda por fazer:**
 1. Fase 2 itens 3-4: e-mail · Google Calendar. Trilha adaptativa. Dashboard de evolução completo.
 2. Memória mais longa (a bot lembrar "ontem você travou em X") — hoje só 14 msgs.
-3. Merge `fase-1` → `main` + reescrever `Claude.md`. Nav lateral já tem 8 itens — na barra mobile pode apertar.
+3. Merge `fase-1` → `main` + reescrever `Claude.md`. Nav lateral com 8-9 itens — barra mobile aperta.
 2. Merge `fase-1` → `main` + reescrever `Claude.md` (arquitetura Fase 1/2 completa).
 3. Domínio próprio → Caddy + named tunnel (URL estável, e a PWA precisa de HTTPS estável pro push não quebrar).
 4. Validação: 20-30 pessoas da beachhead.
