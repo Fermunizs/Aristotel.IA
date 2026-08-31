@@ -178,8 +178,17 @@ Visão evoluída (Produto.md reescrito): **plataforma de treino pra quem tem dif
 - `/lembretes`: seção "Onde receber" (PushToggle) + **seletor de canal por lembrete** (Telegram/Navegador) + **edição de horário com debounce 500ms** (a Fernanda reclamou que não dava pra editar os existentes — era `onBlur` que não disparava).
 - Push real só testável no navegador dela / celular (a automação não concede permissão de notificação).
 
+## 2026-08-31 — fix (uso real): memória + desafio
+
+Bug reportado pela Fernanda: pediu ajuda no desafio → a bot respondeu "marquei como feito" (sem ela ter feito) e não lembrava qual era o desafio.
+- `db/migrations/0004_history.sql`: `bot_state.history` jsonb (últimas 14 msgs).
+- `llm.generate(history=[])`; `util.ask` repassa. Conversa livre passa o histórico.
+- Desafio: o `pending` agora guarda o texto do desafio (`{type:'challenge', text, day}`). No `on_text`, a bot **conversa** — ajuda com pista (não entrega solução), dá feedback em tentativa — e só faz `auto_complete('desafio')` se a mensagem tiver "terminei/consegui/feito/pronto/acabei/fiz/resolvi/...". `application_challenge` também empurra o desafio pro `history`.
+- Testado: "me ajuda, não lembro como declara método boolean" → a bot respondeu com o `passou()` do desafio + uma pista, sem entregar tudo.
+
 **Ainda por fazer:**
 1. Fase 2 itens 3-4: e-mail · Google Calendar. Trilha adaptativa. Dashboard de evolução completo.
+2. Memória mais longa (a bot lembrar "ontem você travou em X") — hoje só 14 msgs; o resto está em `events` + review semanal.
 2. Merge `fase-1` → `main` + reescrever `Claude.md` (arquitetura Fase 1/2 completa).
 3. Domínio próprio → Caddy + named tunnel (URL estável, e a PWA precisa de HTTPS estável pro push não quebrar).
 4. Validação: 20-30 pessoas da beachhead.
