@@ -38,14 +38,11 @@ async def schedule_user(app: Application, user) -> None:
     reminders = await db.get_reminders(user["id"])
     n = 0
     for rem in reminders:
-        if rem["channel"] != "telegram":
-            continue  # push / e-mail: Fase 2 item 2-3
-        fn_name = config.REMINDER_JOBS.get(rem["kind"])
-        fn = JOBS.get(fn_name)
-        if not fn:
-            continue
+        if rem["channel"] not in ("telegram", "push"):
+            continue  # e-mail: Fase 2 item 3
+        fn = JOBS.get(config.REMINDER_JOBS.get(rem["kind"]))
         t = _reminder_time(rem)
-        if not t:
+        if not fn or not t:
             continue
         days = tuple(sorted(int(d) for d in rem["days"]))
         app.job_queue.run_daily(
@@ -56,6 +53,7 @@ async def schedule_user(app: Application, user) -> None:
             data={
                 "user_id": str(user["id"]),
                 "kind": rem["kind"],
+                "channel": rem["channel"],
                 "custom_text": rem.get("custom_text"),
             },
         )

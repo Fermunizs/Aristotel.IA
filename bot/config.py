@@ -54,6 +54,10 @@ WEB_URL = os.getenv("WEB_URL", "http://localhost:3000").strip().rstrip("/")
 _sa = os.getenv("SUPERADMIN_CHAT_ID", "").strip()
 SUPERADMIN_CHAT_ID = int(_sa) if _sa.lstrip("-").isdigit() else None
 
+# --- Web Push (canal 'push' dos lembretes) -----------------------------
+VAPID_PRIVATE_KEY = os.getenv("VAPID_PRIVATE_KEY", "").strip()
+VAPID_PUBLIC_KEY = os.getenv("VAPID_PUBLIC_KEY", "").strip()
+
 # --- Lembretes: kind do lembrete -> função que executa -----------------
 REMINDER_JOBS: dict[str, str] = {
     "motivacao": "daily_motivation",

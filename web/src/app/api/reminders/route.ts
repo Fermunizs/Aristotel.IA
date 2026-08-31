@@ -58,6 +58,7 @@ export async function PATCH(req: Request) {
   }
   if (Array.isArray(b.days)) patch.days = b.days;
   if (typeof b.customText === "string") patch.customText = b.customText.slice(0, 200);
+  if (["telegram", "push", "email"].includes(b.channel)) patch.channel = b.channel;
 
   await db
     .update(reminders)

@@ -16,8 +16,10 @@ export type Kind = keyof typeof KINDS;
 
 export const CHANNELS = {
   telegram: { label: "Telegram", ready: true },
-  push: { label: "Notificação no navegador", ready: false },
+  push: { label: "Navegador", ready: true },
   email: { label: "E-mail", ready: false },
 } as const;
+
+export type Channel = keyof typeof CHANNELS;
 
 export const DAY_LABELS = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"];

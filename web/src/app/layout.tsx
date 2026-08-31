@@ -14,12 +14,22 @@ const spaceMono = Space_Mono({ subsets: ["latin"], weight: ["400", "700"], varia
 export const metadata: Metadata = {
   title: "Aristótel.IA",
   description: "O quanto você já andou.",
+  manifest: "/manifest.json",
 };
+
+export const viewport = { themeColor: "#fbf7f0" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR" className={`${fraunces.variable} ${inter.variable} ${spaceMono.variable}`}>
-      <body>{children}</body>
+      <body>
+        {children}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(()=>{})}`,
+          }}
+        />
+      </body>
     </html>
   );
 }

@@ -357,6 +357,22 @@ async def clear_reminders_dirty(user_id) -> None:
         await con.execute("UPDATE bot_state SET reminders_dirty = false WHERE user_id = $1", user_id)
 
 
+# ── web push ────────────────────────────────────────────────────────
+async def get_push_subs(user_id) -> list[asyncpg.Record]:
+    async with pool().acquire() as con:
+        return await con.fetch("SELECT * FROM push_subscriptions WHERE user_id = $1", user_id)
+
+
+async def mark_push_ok(sub_id) -> None:
+    async with pool().acquire() as con:
+        await con.execute("UPDATE push_subscriptions SET last_ok_at = now() WHERE id = $1", sub_id)
+
+
+async def delete_push_sub(sub_id) -> None:
+    async with pool().acquire() as con:
+        await con.execute("DELETE FROM push_subscriptions WHERE id = $1", sub_id)
+
+
 # ── outbox (web → bot) ───────────────────────────────────────────────
 async def pop_outbox() -> list[asyncpg.Record]:
     async with pool().acquire() as con:

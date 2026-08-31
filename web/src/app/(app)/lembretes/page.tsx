@@ -1,6 +1,7 @@
 import { getSession } from "@/lib/session";
 import { getReminders } from "@/lib/reminders";
 import { RemindersEditor } from "@/components/RemindersEditor";
+import { PushToggle } from "@/components/PushToggle";
 
 export const dynamic = "force-dynamic";
 
@@ -20,19 +21,30 @@ export default async function Lembretes() {
         </p>
       </header>
 
-      <RemindersEditor
-        initial={list.map((r) => ({
-          id: r.id,
-          kind: r.kind,
-          customText: r.customText,
-          scheduleType: r.scheduleType,
-          atTime: r.atTime ? r.atTime.slice(0, 5) : null,
-          period: r.period,
-          days: r.days,
-          enabled: r.enabled,
-        }))}
-        readOnly={readOnly}
-      />
+      {!readOnly && (
+        <div>
+          <p className="label mb-2">Onde receber</p>
+          <PushToggle />
+        </div>
+      )}
+
+      <div>
+        <p className="label mb-2">Seus lembretes</p>
+        <RemindersEditor
+          initial={list.map((r) => ({
+            id: r.id,
+            kind: r.kind,
+            customText: r.customText,
+            scheduleType: r.scheduleType,
+            atTime: r.atTime ? r.atTime.slice(0, 5) : null,
+            period: r.period,
+            days: r.days,
+            channel: r.channel,
+            enabled: r.enabled,
+          }))}
+          readOnly={readOnly}
+        />
+      </div>
     </div>
   );
 }

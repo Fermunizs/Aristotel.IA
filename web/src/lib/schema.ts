@@ -113,6 +113,15 @@ export const botState = pgTable("bot_state", {
   remindersDirty: boolean("reminders_dirty").notNull(),
 });
 
+export const pushSubscriptions = pgTable("push_subscriptions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull(),
+  endpoint: text("endpoint").notNull(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  label: text("label"),
+});
+
 export const streaks = pgTable("streaks", {
   userId: uuid("user_id").notNull(),
   kind: text("kind").notNull(),
