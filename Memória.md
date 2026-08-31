@@ -169,8 +169,17 @@ Visão evoluída (Produto.md reescrito): **plataforma de treino pra quem tem dif
 - Split `reminder-kinds.ts` (constantes, client-safe) × `reminders.ts` (db) — `postgres` não pode entrar no bundle do cliente (erro "Can't resolve 'net'").
 - Testado e2e: toggle no painel → `reminders_dirty` → bot re-agenda (7→6 lembretes) em <60s. Deployado.
 
+**Feito — canal push / PWA (Fase 2 item 2) + edição de lembretes:**
+- `db/migrations/0003_push.sql`: `push_subscriptions` (endpoint único, p256dh, auth).
+- **VAPID keys** geradas (ECDSA P-256). Privada no `.env` do bot (`VAPID_PRIVATE_KEY`), pública no bot + no `web.env` como `NEXT_PUBLIC_VAPID_KEY` (inline no build!).
+- **Bot** `push.py` (pywebpush): `send(user_id, title, body)` — 404/410 → apaga sub morta. `jobs._deliver()` roteia telegram/push conforme `context.job.data["channel"]`; `_plain()` tira markdown pra notificação. `scheduling` agenda lembretes de push também.
+- **Web PWA**: `public/manifest.json` + `public/sw.js` (push + notificationclick) + `icon-192/512.png` (gerados com Pillow — bandeira no morro). `layout.tsx` registra o SW.
+- `PushToggle.tsx` — pede permissão, `pushManager.subscribe`, POST `/api/push`. Estados: unsupported/denied/off/on.
+- `/lembretes`: seção "Onde receber" (PushToggle) + **seletor de canal por lembrete** (Telegram/Navegador) + **edição de horário com debounce 500ms** (a Fernanda reclamou que não dava pra editar os existentes — era `onBlur` que não disparava).
+- Push real só testável no navegador dela / celular (a automação não concede permissão de notificação).
+
 **Ainda por fazer:**
-1. Fase 2 itens 2-4: push PWA · e-mail · Google Calendar. Trilha adaptativa. Dashboard de evolução completo.
-2. Merge `fase-1` → `main` + reescrever `Claude.md` (arquitetura Fase 1/2).
-3. Domínio próprio → Caddy + named tunnel (URL estável).
+1. Fase 2 itens 3-4: e-mail · Google Calendar. Trilha adaptativa. Dashboard de evolução completo.
+2. Merge `fase-1` → `main` + reescrever `Claude.md` (arquitetura Fase 1/2 completa).
+3. Domínio próprio → Caddy + named tunnel (URL estável, e a PWA precisa de HTTPS estável pro push não quebrar).
 4. Validação: 20-30 pessoas da beachhead.
