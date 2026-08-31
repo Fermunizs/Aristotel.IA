@@ -20,6 +20,19 @@ const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 const KIND_KEYS = Object.keys(KINDS) as Kind[];
 const CHAN_KEYS = (Object.keys(CHANNELS) as Channel[]).filter((c) => CHANNELS[c].ready);
 
+function textLabel(kind: string) {
+  if (kind === "livre") return { label: "Texto do lembrete", ph: "ex: beber água, alongar 2 min" };
+  return {
+    label: "Ajuste seu (opcional)",
+    ph:
+      kind === "insight"
+        ? "ex: foca em carreira e mercado, não em código"
+        : kind === "quiz"
+          ? "ex: quiz mais difícil, com trecho de código"
+          : "ex: tom mais durão / mais curto / cite uma fonte",
+  };
+}
+
 async function api(method: string, body?: unknown, qs = "") {
   return fetch(`/api/reminders${qs}`, {
     method,
@@ -87,18 +100,24 @@ function ReminderCard({
   const meta = KINDS[r.kind as Kind];
   const [time, setTime] = useState(r.atTime ?? "09:00");
   const [text, setText] = useState(r.customText ?? "");
-  const first = useRef(true);
+  const firstT = useRef(true);
+  const firstX = useRef(true);
+  const tl = textLabel(r.kind);
 
-  // salva o horário 500ms depois de parar de mexer (edição confiável)
+  // salva 500ms depois de parar de digitar (edição confiável)
   useEffect(() => {
-    if (first.current) {
-      first.current = false;
-      return;
-    }
+    if (firstT.current) return void (firstT.current = false);
     if (readOnly || time === r.atTime) return;
-    const t = setTimeout(() => onPatch(r.id, { atTime: time }), 500);
-    return () => clearTimeout(t);
+    const id = setTimeout(() => onPatch(r.id, { atTime: time }), 500);
+    return () => clearTimeout(id);
   }, [time]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (firstX.current) return void (firstX.current = false);
+    if (readOnly || text === (r.customText ?? "")) return;
+    const id = setTimeout(() => onPatch(r.id, { customText: text }), 700);
+    return () => clearTimeout(id);
+  }, [text]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function toggleDay(d: number) {
     if (readOnly) return;
@@ -127,16 +146,17 @@ function ReminderCard({
         </button>
       </div>
 
-      {r.kind === "livre" && (
+      <div className="mt-3">
+        <label className="label mb-1 block text-[0.62rem]">{tl.label}</label>
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
-          onBlur={() => text !== r.customText && onPatch(r.id, { customText: text })}
           disabled={readOnly}
-          placeholder="o que você quer que ela te lembre?"
-          className="card-solid mt-3 w-full rounded-lg border border-line px-3 py-2 text-sm outline-none focus:border-clay"
+          maxLength={200}
+          placeholder={tl.ph}
+          className="card-solid w-full rounded-lg border border-line px-3 py-2 text-sm outline-none focus:border-clay"
         />
-      )}
+      </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <label className="flex items-center gap-1.5 text-xs text-ink-soft">
@@ -216,14 +236,13 @@ function AddForm({ onDone, onCancel }: { onDone: () => void; onCancel: () => voi
       </select>
       <p className="text-xs text-ink-soft">{KINDS[kind].desc}</p>
 
-      {kind === "livre" && (
-        <input
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="o texto do lembrete"
-          className="card-solid w-full rounded-lg border border-line px-3 py-2 text-sm outline-none focus:border-clay"
-        />
-      )}
+      <input
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        maxLength={200}
+        placeholder={textLabel(kind).ph}
+        className="card-solid w-full rounded-lg border border-line px-3 py-2 text-sm outline-none focus:border-clay"
+      />
 
       <input
         type="time"

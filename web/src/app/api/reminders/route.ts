@@ -20,10 +20,11 @@ export async function POST(req: Request) {
     .from(reminders)
     .where(eq(reminders.userId, uid));
 
+  const note = String(b.customText ?? "").slice(0, 200).trim();
   await db.insert(reminders).values({
     userId: uid,
     kind: b.kind,
-    customText: b.kind === "livre" ? String(b.customText ?? "").slice(0, 200) : null,
+    customText: note || null,
     scheduleType: b.scheduleType === "periodo" ? "periodo" : "fixo",
     atTime: b.scheduleType === "periodo" ? null : (b.atTime ?? "09:00"),
     period: b.scheduleType === "periodo" ? (b.period ?? "manha") : null,
