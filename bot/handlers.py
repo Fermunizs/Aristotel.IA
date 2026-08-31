@@ -162,7 +162,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         goal = plan["goal"] if plan else None
         hist = await db.get_history(user["id"])
         resp = await ask(
-            prompts.persona(user["name"], goal, user["coach_tone"])
+            prompts.persona(user["name"], goal, user["coach_tone"], user["coach_note"])
             + "\n\nVocê está numa conversa com a pessoa. Responda direto, sincero, sem textão. "
             "Use o histórico pra manter o contexto.",
             text, history=hist[:-1], max_tokens=500,
@@ -200,7 +200,7 @@ async def _challenge(update: Update, user, pending: dict, text: str) -> None:
         await db.log_event(user["id"], "desafio", day, {"nota": text[:300]})
         await db.set_pending(user["id"], None)
         resp = await ask(
-            prompts.persona(user["name"], goal, user["coach_tone"])
+            prompts.persona(user["name"], goal, user["coach_tone"], user["coach_note"])
             + f"\n\nO desafio era:\n{desafio}\n\nA pessoa disse que terminou. "
             "Dê um retorno curto e sincero — se ela colou a solução, comente 1 ponto; se não, só reconheça e provoque a continuar.",
             text, history=hist, max_tokens=350,
@@ -210,7 +210,7 @@ async def _challenge(update: Update, user, pending: dict, text: str) -> None:
 
     # ainda no desafio: ajuda, sem marcar como feito
     resp = await ask(
-        prompts.persona(user["name"], goal, user["coach_tone"])
+        prompts.persona(user["name"], goal, user["coach_tone"], user["coach_note"])
         + f"\n\nA pessoa está fazendo este desafio AGORA:\n{desafio}\n\n"
         "Ela te mandou uma mensagem. Se for dúvida, ajude com uma pista — NÃO entregue a solução pronta. "
         "Se for uma tentativa, dê feedback. Mantenha o desafio em pé. Curto, sem textão.",
@@ -224,7 +224,7 @@ async def _review(update: Update, user, text: str) -> None:
     data_str = now_for(user).strftime("%d/%m")
     plan = await db.get_plan(user["id"])
     goal = plan["goal"] if plan else None
-    card = await ask(prompts.persona(user["name"], goal, user["coach_tone"]) + "\n\n" + prompts.REVIEW_FORMAT.replace("{data}", data_str),
+    card = await ask(prompts.persona(user["name"], goal, user["coach_tone"], user["coach_note"]) + "\n\n" + prompts.REVIEW_FORMAT.replace("{data}", data_str),
                      f"Resposta da pessoa:\n{text}", label=True, temperature=0.6, max_tokens=450)
     day = now_for(user).date()
     new_streak = await db.bump_streak(user["id"], day)
@@ -245,7 +245,7 @@ async def _content_confirm(update: Update, user, text: str) -> None:
 
 
 async def _content_idea(update: Update, user, text: str) -> None:
-    info = await ask_json(prompts.persona(user["name"], None, user["coach_tone"]) + "\n\n" + prompts.CONTENT_CLASSIFY, text,
+    info = await ask_json(prompts.persona(user["name"], None, user["coach_tone"], user["coach_note"]) + "\n\n" + prompts.CONTENT_CLASSIFY, text,
                           max_tokens=300) or {}
     await db.add_content_idea(
         user["id"], theme=info.get("tema") or text[:60], type=info.get("tipo", ""),

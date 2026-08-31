@@ -75,7 +75,10 @@ async def get_or_create_user(chat_id: int, username: str | None, name: str | Non
     return await get_user(row["id"])
 
 
-_USER_COLS = "u.*, coalesce(p.coach_tone, 'equilibrada') AS coach_tone"
+_USER_COLS = (
+    "u.*, coalesce(p.coach_tone, 'equilibrada') AS coach_tone, "
+    "coalesce(p.coach_note, '') AS coach_note"
+)
 
 
 async def get_user(user_id) -> asyncpg.Record | None:

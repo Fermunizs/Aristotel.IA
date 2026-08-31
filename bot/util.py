@@ -22,12 +22,24 @@ async def send_text(bot, chat_id: int, text: str) -> None:
         await bot.send_message(chat_id=chat_id, text=text)
 
 
+def _cap(kw: dict) -> dict:
+    """Aplica o teto global de tokens (config de limites)."""
+    from . import coach
+
+    cap = coach.token_cap()
+    if "max_tokens" in kw:
+        kw["max_tokens"] = min(kw["max_tokens"], cap)
+    return kw
+
+
 async def ask(system: str, user: str, *, label: bool = False, history: list | None = None, **kw) -> str:
+    kw = _cap(kw)
     raw = await asyncio.to_thread(lambda: llm.generate(system, user, history=history, **kw))
     return llm.tidy(raw) if label else llm.unlabel(raw)
 
 
 async def ask_json(system: str, user: str, **kw) -> dict | None:
+    # JSON estruturado (trilha, quiz) pode passar do teto — precisa caber inteiro
     return await asyncio.to_thread(llm.generate_json, system, user, **kw)
 
 

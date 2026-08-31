@@ -22,6 +22,13 @@ DEFAULTS = {
         "No máximo 1 emoji por mensagem, no início. Nunca enfileire emojis. "
         "Código sempre em bloco ou entre crases. Se der pra dizer em 1 frase, é 1 frase."
     ),
+    # ── LIMITES (não editáveis pelo usuário) ──
+    "nunca": (
+        "Nunca dê conselho médico, jurídico ou de investimento específico. "
+        "Nunca prometa resultado garantido. Nunca fale de política ou religião. "
+        "Se a pessoa insistir num tema fora do seu papel, redirecione pro objetivo dela."
+    ),
+    "teto_tokens": "600",
 }
 
 _cache: dict = dict(DEFAULTS)
@@ -48,22 +55,37 @@ TONE = {
 }
 
 
-def persona(name: str | None = None, goal: str | None = None, tone: str | None = None) -> str:
+def persona(
+    name: str | None = None,
+    goal: str | None = None,
+    tone: str | None = None,
+    note: str | None = None,
+) -> str:
     c = _cache
     s = (
         f"{c['identidade']}\n\n"
         f"SEU OBJETIVO: {c['objetivo']}\n\n"
         f"TOM: {c['tom']}\n\n"
-        f"SEMPRE: {c['sempre']}"
+        f"SEMPRE: {c['sempre']}\n\n"
+        f"NUNCA (regras que valem sempre, acima de tudo): {c['nunca']}"
     )
     t = TONE.get(tone or "")
     if t:
         s += f"\n\n{t}"
+    if note and note.strip():
+        s += f"\n\nPedido pessoal desta pessoa (respeite, dentro dos limites acima): {note.strip()}"
     if name:
         s += f"\n\nA pessoa se chama {name}."
     if goal:
         s += f" Ela está trabalhando para: {goal}."
     return s
+
+
+def token_cap() -> int:
+    try:
+        return max(120, int(_cache.get("teto_tokens", "600")))
+    except (ValueError, TypeError):
+        return 600
 
 
 def stale() -> bool:

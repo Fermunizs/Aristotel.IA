@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { appSettings } from "@/lib/schema";
 import { getSession } from "@/lib/session";
 
-const KEYS = ["identidade", "objetivo", "tom", "sempre"] as const;
+const KEYS = ["identidade", "objetivo", "tom", "sempre", "nunca", "teto_tokens"] as const;
 
 async function guard() {
   const session = await getSession();
@@ -25,7 +25,11 @@ export async function PUT(req: Request) {
 
   for (const k of KEYS) {
     if (typeof body[k] !== "string") continue;
-    const value = body[k].slice(0, 2000);
+    let value = body[k].slice(0, 2000);
+    if (k === "teto_tokens") {
+      const n = Math.max(120, Math.min(4000, parseInt(value, 10) || 600));
+      value = String(n);
+    }
     await db
       .insert(appSettings)
       .values({ key: k, value, updatedAt: new Date() })

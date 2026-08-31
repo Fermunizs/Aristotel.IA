@@ -51,7 +51,7 @@ async def daily_motivation(context: ContextTypes.DEFAULT_TYPE) -> None:
         return
     plan = await db.get_plan(user["id"])
     goal = plan["goal"] if plan else None
-    frase = await ask(prompts.persona(user["name"], goal, user["coach_tone"]) + "\n\n" + prompts.MOTIVATION + _note(context),
+    frase = await ask(prompts.persona(user["name"], goal, user["coach_tone"], user["coach_note"]) + "\n\n" + prompts.MOTIVATION + _note(context),
                       "Gere a frase de hoje.", temperature=1.0, max_tokens=200)
     await _deliver(context, user, chat, "Provocação da manhã", f"🌅 {frase}")
     await db.log_event(user["id"], "msg:motivation", now_for(user).date())
@@ -65,7 +65,7 @@ async def daily_learning_guide(context: ContextTypes.DEFAULT_TYPE) -> None:
     if not plan:
         return
     day = now_for(user).date()
-    texto = await ask(prompts.persona(user["name"], plan["goal"], user["coach_tone"]) + "\n\n" + prompts.LEARNING_GUIDE + _note(context),
+    texto = await ask(prompts.persona(user["name"], plan["goal"], user["coach_tone"], user["coach_note"]) + "\n\n" + prompts.LEARNING_GUIDE + _note(context),
                       prompts.learning_context(plan), temperature=0.7, max_tokens=300)
     await _deliver(context, user, chat, "O que fazer hoje", f"🧭 *Guia do dia*\n\n{texto}")
     topic = prompts.today_topic(plan)
@@ -83,7 +83,7 @@ async def micro_learning(context: ContextTypes.DEFAULT_TYPE) -> None:
     plan = await db.get_plan(user["id"])
     if not plan:
         return
-    texto = await ask(prompts.persona(user["name"], plan["goal"], user["coach_tone"]) + "\n\n" + prompts.MICRO_LEARNING + _note(context),
+    texto = await ask(prompts.persona(user["name"], plan["goal"], user["coach_tone"], user["coach_note"]) + "\n\n" + prompts.MICRO_LEARNING + _note(context),
                       prompts.learning_context(plan), temperature=0.7, max_tokens=450)
     await _deliver(context, user, chat, "Pílula de conteúdo", f"📚 *Conteúdo rápido*\n\n{texto}")
     await db.log_event(user["id"], "msg:micro", now_for(user).date())
@@ -98,7 +98,7 @@ async def learning_check(context: ContextTypes.DEFAULT_TYPE) -> None:
         return
     events = await db.events_since(user["id"], now_for(user).date().replace(day=1))
     tops = prompts.recent_topics(plan, events)
-    quiz = await ask_json(prompts.persona(user["name"], plan["goal"], user["coach_tone"]) + "\n\n" + prompts.QUIZ + _note(context),
+    quiz = await ask_json(prompts.persona(user["name"], plan["goal"], user["coach_tone"], user["coach_note"]) + "\n\n" + prompts.QUIZ + _note(context),
                           f"Tópicos recentes: {tops}", max_tokens=1600)
     if not quiz or "alternativas" not in quiz:
         log.warning("Quiz inválido p/ user %s", user["id"])
@@ -124,7 +124,7 @@ async def daily_insight(context: ContextTypes.DEFAULT_TYPE) -> None:
         return
     plan = await db.get_plan(user["id"])
     goal = plan["goal"] if plan else None
-    texto = await ask(prompts.persona(user["name"], goal, user["coach_tone"]) + "\n\n" + prompts.INSIGHT + _note(context),
+    texto = await ask(prompts.persona(user["name"], goal, user["coach_tone"], user["coach_note"]) + "\n\n" + prompts.INSIGHT + _note(context),
                       "Gere o insight de hoje.", temperature=0.9, max_tokens=350)
     await _deliver(context, user, chat, "Insight", f"🧠 *Insight*\n\n{texto}")
     await db.log_event(user["id"], "msg:insight", now_for(user).date())
@@ -138,7 +138,7 @@ async def application_challenge(context: ContextTypes.DEFAULT_TYPE) -> None:
     if not plan:
         return
     day = now_for(user).date()
-    texto = await ask(prompts.persona(user["name"], plan["goal"], user["coach_tone"]) + "\n\n" + prompts.CHALLENGE + _note(context),
+    texto = await ask(prompts.persona(user["name"], plan["goal"], user["coach_tone"], user["coach_note"]) + "\n\n" + prompts.CHALLENGE + _note(context),
                       prompts.learning_context(plan), temperature=0.8, max_tokens=250)
     await _deliver(context, user, chat, "Desafio de 10 min", f"🛠️ *Desafio de 10 minutos*\n\n{texto}")
     await db.add_task(user["id"], day, "desafio", "Desafio de aplicação do dia", texto[:200])

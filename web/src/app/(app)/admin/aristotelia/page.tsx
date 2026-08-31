@@ -31,6 +31,8 @@ export default async function EditarIA() {
           objetivo: cur.objetivo ?? "",
           tom: cur.tom ?? "",
           sempre: cur.sempre ?? "",
+          nunca: cur.nunca ?? "",
+          teto_tokens: cur.teto_tokens ?? "600",
         }}
       />
     </div>

@@ -1,11 +1,8 @@
-import { eq } from "drizzle-orm";
 import { getSession } from "@/lib/session";
 import { getReminders } from "@/lib/reminders";
-import { db } from "@/lib/db";
-import { preferences } from "@/lib/schema";
 import { RemindersEditor } from "@/components/RemindersEditor";
 import { PushToggle } from "@/components/PushToggle";
-import { CoachTonePicker } from "@/components/CoachTonePicker";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -13,10 +10,6 @@ export default async function Lembretes() {
   const { viewing, account } = (await getSession())!;
   const readOnly = account.id !== viewing.id;
   const list = await getReminders(viewing.id);
-  const [prefs] = await db
-    .select({ coachTone: preferences.coachTone })
-    .from(preferences)
-    .where(eq(preferences.userId, viewing.id));
 
   return (
     <div className="space-y-6">
@@ -25,14 +18,12 @@ export default async function Lembretes() {
         <h1 className="mt-1 text-[clamp(1.6rem,4vw,2.4rem)]">Como a treinadora te cobra</h1>
         <p className="mt-2 max-w-lg text-sm text-ink-soft">
           A Aristótel.IA montou esse acompanhamento pra você. Muda os horários, desliga o que
-          atrapalha, adiciona um lembrete seu. Ela se ajusta na hora.
+          atrapalha, adiciona um lembrete seu. Ela se ajusta na hora.{" "}
+          <Link href="/ajustes" className="text-clay">
+            ajustar como ela fala →
+          </Link>
         </p>
       </header>
-
-      <div>
-        <p className="label mb-2">Como ela te cobra</p>
-        <CoachTonePicker current={prefs?.coachTone ?? "equilibrada"} readOnly={readOnly} />
-      </div>
 
       {!readOnly && (
         <div>

@@ -36,6 +36,7 @@ export const preferences = pgTable("preferences", {
   wakeTime: time("wake_time").notNull(),
   sleepTime: time("sleep_time").notNull(),
   coachTone: text("coach_tone").notNull(),
+  coachNote: text("coach_note").notNull(),
   enabledFunctions: jsonb("enabled_functions").notNull(),
 });
 

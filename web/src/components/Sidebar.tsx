@@ -10,6 +10,7 @@ const NAV = [
   { href: "/foco", label: "Foco", icon: FocoIcon },
   { href: "/lembretes", label: "Lembretes", icon: LembreteIcon },
   { href: "/evolucao", label: "Evolução", icon: EvolucaoIcon },
+  { href: "/ajustes", label: "Ajustes", icon: AjusteUserIcon },
 ];
 
 export function Sidebar({
@@ -127,3 +128,4 @@ function LembreteIcon() { return <svg {...S}><path d="M6 10a6 6 0 0 1 12 0c0 5 2
 function EvolucaoIcon() { return <svg {...S}><path d="M4 18h16M6 18v-4M11 18v-8M16 18v-6M21 18V8" /></svg>; }
 function AdminIcon() { return <svg {...S}><circle cx="9" cy="8" r="3" /><circle cx="16" cy="10" r="2.5" /><path d="M4 19c0-3 2-5 5-5s5 2 5 5M14 19c0-2 1-3.5 2.5-3.5" /></svg>; }
 function AjustarIcon() { return <svg {...S}><path d="M5 7h9M18 7h1M5 17h1M10 17h9" /><circle cx="16" cy="7" r="2" /><circle cx="8" cy="17" r="2" /></svg>; }
+function AjusteUserIcon() { return <svg {...S}><circle cx="12" cy="12" r="3" /><path d="M12 4v2M12 18v2M4 12h2M18 12h2M6 6l1.5 1.5M16.5 16.5 18 18M18 6l-1.5 1.5M7.5 16.5 6 18" /></svg>; }
