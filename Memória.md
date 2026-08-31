@@ -129,7 +129,17 @@ Nenhuma linha de código do produto multiusuário foi escrita ainda — só a vi
 
 **Rate limit do Groq (importante):** free tier = **8000 tokens/min** por modelo. Isso é o principal gargalo do produto ao escalar. Hoje mitigado com lock global + cooldown + geração fatiada. 20+ usuários com mensagens agrupadas às 08h vão enfileirar.
 
-**Próximo (Fase 1):**
-1. Web (Next.js): auth por código, superadmin (lista/criar/impersonar), dashboard do usuário (checklist + pomodoro + evolução). Usar skill `saas-scaffolder` como base.
-2. Deploy Fase 1 na VM (parar systemd Fase 0, apontar pro `bot/`, subir o web) + cutover (`fase-1` → `main`).
-3. Fernanda testa `/start` (onboarding real) no bot.
+**Painel web — FEITO (`web/`, branch `fase-1`, não deployado):**
+- Next.js 15 (App Router, TS) + **Drizzle** (`web/src/lib/schema.ts` mapeia as tabelas de `0001_init.sql` — migrations continuam sendo do bot) + `postgres` driver. `output: standalone`.
+- **Auth:** `/entrar` = código de 6 dígitos que o bot gera no `/painel` (tabela `auth_codes`); `/admin/entrar` = senha (`ADMIN_PASSWORD` env). Sessão em cookie httpOnly + tabela `web_sessions`.
+- **Dashboard** (`/`): checklist do dia com toggle (grava `done_via='web'`), pomodoro (POST cria `focus_session` + evento), streak, stats da semana, trilha completa.
+- **Superadmin** (`/admin`): overview (total/ativos/onboarding/ativos-7d/streak médio) + tabela de usuários + **impersonar** (`web_sessions.acts_as`) → vê o painel de qualquer pessoa.
+- Tema escuro âmbar (Design.md §6). `npm run build` OK; smoke test e2e OK contra o Postgres da VM (login admin, impersonar, toggle de tarefa, redirect de auth).
+- Deps: `cd web && npm install`. Rodar local: `node .next/standalone/server.js` (não `next start` — conflita com standalone).
+
+**Próximo — DEPLOY da Fase 1 na VM + cutover:**
+1. Instalar Node na VM; Caddy pra HTTPS via `147-15-46-51.sslip.io` (sem domínio); abrir portas 80/443 na security list Oracle.
+2. `systemd`: parar `aristotelia` (Fase 0), apontar pro `bot/` novo; nova unit `aristotelia-web` (`node .next/standalone/server.js`).
+3. `.env` da VM: + `DATABASE_URL`, `WEB_URL=https://...sslip.io`, `SUPERADMIN_CHAT_ID` (pegar o chat_id da Fernanda quando ela der /start), `ADMIN_PASSWORD`.
+4. Merge `fase-1` → `main`. Reescrever `Claude.md` pra arquitetura Fase 1.
+5. Fernanda: `/start` (onboarding real) + `/painel` (testar o site).
