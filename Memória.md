@@ -115,10 +115,21 @@ Nenhuma linha de código do produto multiusuário foi escrita ainda — só a vi
 - **Postgres 16** rodando na VM: container Docker `arist-pg` (`127.0.0.1:5432`, volume `arist_pgdata`, restart unless-stopped). DB `aristotelia`, user `arist`, senha `arist_local_dev`.
 - **Schema aplicado** — `db/migrations/0001_init.sql` (13 tabelas): users, auth_codes, web_sessions, admin_credentials, preferences, learning_plans, tasks, events, focus_sessions, content_ideas, streaks, bot_state, outbox. Ver `db/README.md`.
 
-**Próximo (Fase 1, em ordem):**
-1. `bot/db.py` — pool asyncpg + runner de migrations + DAO por usuário.
-2. Refatorar `storage/jobs/handlers/weekly` do bot pra multiusuário (estado por `user_id`, jobs por usuário respeitando fuso/horários/funções ligadas).
-3. Onboarding no Telegram: novo usuário → 3 perguntas → LLM gera trilha → agenda os jobs dele.
-4. Checklist: trilha do dia vira `tasks`; auto-check quando feito pelo Telegram.
-5. Web (Next.js): auth por código, superadmin (lista/criar/impersonar), dashboard do usuário (checklist + pomodoro + evolução).
-6. Deploy dos dois na VM + cutover (merge `fase-1` → `main`).
+**Bot multiusuário — FEITO (branch `fase-1`, não deployado ainda):**
+- `bot/db.py` — pool asyncpg, runner de migrations (`_migrations`), DAO por usuário.
+- `bot/onboarding.py` — 3 perguntas (objetivo/nível/minutos) → `build_trilha()` gera **semana a semana** (4 chamadas pequenas — necessário porque **Groq free = 8000 tokens/min**, uma trilha inteira estoura). ~10-35s.
+- `bot/scheduling.py` — jobs por usuário (fuso de `users.timezone` + `preferences.enabled_functions`). 10 jobs/usuário.
+- `jobs.py`/`weekly.py`/`handlers.py` reescritos multiusuário. Estado da conversa em `bot_state.pending`.
+- `bot/llm.py` — **rate limiter adaptativo** (lê headers `x-ratelimit-*` do Groq, cooldown quando perto do limite, retry em 429), + retry de `generate_json` com mais tokens, + repair de JSON truncado.
+- Checklist: `daily_learning_guide` e `application_challenge` criam `tasks`; quiz/desafio/review feitos pelo Telegram fazem `auto_complete`.
+- `/foco [min]` (pomodoro via `run_once`), `/painel` (gera `auth_code` p/ login web).
+- `src/` virou `bot/`; `storage.py` e `data/*.json` removidos.
+- Testado contra o Postgres da VM (túnel SSH): onboarding+trilha (3 níveis), scheduling, DAO, streak, tasks, auth code. **Falta testar no Telegram ao vivo.**
+- `SUPERADMIN_CHAT_ID` no `.env` → o `/start` promove esse usuário a `superadmin`.
+
+**Rate limit do Groq (importante):** free tier = **8000 tokens/min** por modelo. Isso é o principal gargalo do produto ao escalar. Hoje mitigado com lock global + cooldown + geração fatiada. 20+ usuários com mensagens agrupadas às 08h vão enfileirar.
+
+**Próximo (Fase 1):**
+1. Web (Next.js): auth por código, superadmin (lista/criar/impersonar), dashboard do usuário (checklist + pomodoro + evolução). Usar skill `saas-scaffolder` como base.
+2. Deploy Fase 1 na VM (parar systemd Fase 0, apontar pro `bot/`, subir o web) + cutover (`fase-1` → `main`).
+3. Fernanda testa `/start` (onboarding real) no bot.
