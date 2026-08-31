@@ -77,8 +77,14 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE, user, pendi
 
 async def _finish(context: ContextTypes.DEFAULT_TYPE, user, answers: dict) -> None:
     chat = user["telegram_chat_id"]
-    await send_text(context.bot, chat, "🧭 Fechado. Montando sua trilha... (uns segundos)")
 
+    # idempotência: se já tem trilha (retry/duplo /start), só ativa e avisa
+    existing = await db.get_plan(user["id"])
+    if existing:
+        await _activate(context, user, existing)
+        return
+
+    await send_text(context.bot, chat, "🧭 Fechado. Montando sua trilha... (uns segundos)")
     weeks = await build_trilha(user["name"], answers["goal"], answers["level"], answers["minutes"])
     if not weeks:
         await send_text(context.bot, chat,
@@ -88,20 +94,28 @@ async def _finish(context: ContextTypes.DEFAULT_TYPE, user, answers: dict) -> No
     await db.create_plan(user["id"], answers["goal"], answers["level"], weeks)
     await db.save_prefs(user["id"], minutes_per_day=answers["minutes"],
                         coach_tone=answers.get("tone", "equilibrada"))
-    await db.create_default_reminders(user["id"])
+    plan = await db.get_plan(user["id"])
+    await _activate(context, user, plan)
+
+
+async def _activate(context: ContextTypes.DEFAULT_TYPE, user, plan: dict) -> None:
+    """Ativa o usuário: limpa pending, cria lembretes, agenda, manda a boas-vindas."""
     await db.set_pending(user["id"], None)
     await db.set_status(user["id"], "active")
+    try:
+        await db.create_default_reminders(user["id"])
+        fresh = await db.get_user(user["id"])
+        await scheduling.schedule_user(context.application, fresh)
+    except Exception:  # noqa: BLE001 — não deixa o onboarding travar por isso
+        log.exception("Falha ao criar/agendar lembretes de %s", user["id"])
 
-    fresh = await db.get_user(user["id"])
-    await scheduling.schedule_user(context.application, fresh)
-
-    w1 = weeks[0]
+    w1 = plan["weeks"][0]
     d1 = w1["days"][0]
     await send_text(
-        context.bot, chat,
-        f"✅ Trilha pronta: *{len(weeks)} semanas*.\n\n"
+        context.bot, user["telegram_chat_id"],
+        f"✅ Trilha pronta: *{len(plan['weeks'])} semanas*.\n\n"
         f"*Semana 1 — {w1['theme']}*\n"
-        f"Começa hoje: {d1['topic']}\n_{d1['goal']}_\n\n"
+        f"Começa hoje: {d1['topic']}\n_{d1.get('goal', '')}_\n\n"
         "Todo dia eu te mando: motivação (06h), o que estudar (08h), pílula (09h), "
         "quiz (10h30), insight (15h), desafio (16h) e o fechamento (20h).\n\n"
         "Comandos: /hoje /jasei /plano /status /foco /painel",

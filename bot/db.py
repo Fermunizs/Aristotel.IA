@@ -348,9 +348,9 @@ async def create_auth_code(user_id) -> str:
 
 # ── lembretes ───────────────────────────────────────────────────────
 _DEFAULT_REMINDERS = [
-    ("motivacao", "06:00", 0), ("guia", "08:00", 1), ("pilula", "09:00", 2),
-    ("quiz", "10:30", 3), ("insight", "15:00", 4), ("desafio", "16:00", 5),
-    ("checkin_noite", "20:00", 6),
+    ("motivacao", time(6, 0), 0), ("guia", time(8, 0), 1), ("pilula", time(9, 0), 2),
+    ("quiz", time(10, 30), 3), ("insight", time(15, 0), 4), ("desafio", time(16, 0), 5),
+    ("checkin_noite", time(20, 0), 6),
 ]
 
 
