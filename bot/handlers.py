@@ -37,6 +37,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def cmd_recomecar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Refaz o onboarding e gera uma trilha nova. Mantém streak, evolução e conteúdo."""
     user = await _me(update)
+    log.info("/recomecar de %s (%s)", user["id"], user.get("name"))
     plan = await db.get_plan(user["id"])
     if not plan:
         await db.set_status(user["id"], "onboarding")
@@ -54,6 +55,7 @@ async def _recomecar_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE,
     if not text.strip().lower().startswith(("s", "y")):
         await db.set_pending(user["id"], None)
         return await _reply(update, "Deixa quieto — trilha atual mantida.")
+    log.info("recomecar confirmado por %s — desativando trilha e refazendo onboarding", user["id"])
     await db.deactivate_plan(user["id"])
     await db.set_status(user["id"], "onboarding")
     await onboarding.start(update, context, user)
