@@ -410,3 +410,25 @@ Também: `micro_learning` só cria pending `micro_q` se a pílula terminou mesmo
 - Per-user API key (cada colega com a própria chave grátis) = escala linear e 100% grátis — bom próximo passo se passar de ~30 pessoas.
 
 Deploy: bot (migration 0009 aplicada, no ar) + painel. `py_compile` + `build_app()` + `tsc` OK, chamadas reais de LLM testadas (motivação, quiz 2 rodadas).
+
+## 2026-09-01 (continuação) — níveis de acesso + faxina
+
+Fernanda: "acho q está com problema nos níveis de acesso, um usuário normal está conseguindo acessar a Aba de ajustes da IA".
+
+**Diagnóstico:** os usuários novos são `role='user'` corretamente (Savage World / @savageworld0). As páginas `/admin` e `/admin/aristotelia` JÁ tinham guarda server-side (`redirect` se não for superadmin) — um usuário logado de verdade não passa. O que causava a impressão de bug: **durante impersonação**, o sidebar continuava mostrando "Pessoas" e "Ajustar IA" (usava `session.account.role`, que segue superadmin), e a página abria porque o `account` é superadmin. Fernanda impersonando o colega via os menus de admin e achava que era acesso indevido.
+
+**Correção — impersonação vira "ver como usuário" de verdade:**
+- `web/src/lib/guards.ts` (novo): `requireSession` / `requireAdmin` / `requireSuperadmin`. Os dois últimos bloqueiam **também durante impersonação** (`account.id !== viewing.id` → `redirect('/')`). Pra usar ferramenta de admin, sair da impersonação primeiro (1 clique no rodapé).
+- `web/src/app/(app)/admin/page.tsx` e `.../admin/aristotelia/page.tsx`: usam os guards centralizados.
+- `web/src/components/Sidebar.tsx`: "Pessoas" e "Ajustar IA" só aparecem se `!impersonating`.
+- Verificado no navegador: impersonando o colega, os menus somem e `/admin/aristotelia` direto na URL redireciona pra `/`. Ao sair, tudo volta.
+
+**Faxina (a pedido "faça o que acha melhor"):**
+- Fernanda tinha 14 `web_sessions` acumuladas (cada login `/painel` cria uma, nunca eram apagadas).
+- `web/src/lib/session.ts`: `createSession` apaga sessões expiradas antes de criar a nova.
+- `bot/db.py::cleanup_expired()` + job diário `_cleanup_tick` em `main.py`: limpa `auth_codes` (>1d), `web_sessions` expiradas, `outbox` já enviada (>7d), `content_cache` (>14d).
+- `_coach_tick` agora só faz `refresh()` se `coach.stale()`.
+
+Deploy: bot + painel. `tsc` + `build` + `py_compile` OK. Guardas testadas ao vivo.
+
+**Ainda pra fazer (review, sem urgência):** `events` sem partição/prune; `push_history` read-modify-write; per-user API key pra escala linear grátis; job-registry do PTB vira gargalo lá pra centenas de usuários.

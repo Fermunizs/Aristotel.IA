@@ -1,6 +1,5 @@
-import { redirect } from "next/navigation";
-import { getSession } from "@/lib/session";
 import { adminOverview } from "@/lib/queries";
+import { requireAdmin } from "@/lib/guards";
 import { ImpersonateButton } from "@/components/ImpersonateButton";
 import { UserControls } from "@/components/UserControls";
 
@@ -15,9 +14,8 @@ function ago(d: Date | null) {
 }
 
 export default async function Admin() {
-  const session = (await getSession())!;
+  const session = await requireAdmin();
   const canManage = session.account.role === "superadmin";
-  if (!canManage && session.account.role !== "admin") redirect("/");
 
   const { rows, stats } = await adminOverview();
 

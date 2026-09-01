@@ -20,11 +20,20 @@ async def _post_init(app: Application) -> None:
     app.job_queue.run_repeating(_outbox_tick, interval=15, first=10, name="outbox")
     app.job_queue.run_repeating(_resync_tick, interval=60, first=30, name="resync")
     app.job_queue.run_repeating(_coach_tick, interval=120, first=120, name="coach")
+    app.job_queue.run_repeating(_cleanup_tick, interval=86400, first=3600, name="cleanup")
     log.info("Aristótel.IA no ar. LLM: %s (%s)", config.LLM_PROVIDER, config.LLM_MODEL)
 
 
 async def _coach_tick(context) -> None:
-    await coach.refresh()
+    if coach.stale():
+        await coach.refresh()
+
+
+async def _cleanup_tick(context) -> None:
+    try:
+        log.info("Faxina: %s", await db.cleanup_expired())
+    except Exception:  # noqa: BLE001
+        log.exception("cleanup falhou")
 
 
 async def _resync_tick(context) -> None:

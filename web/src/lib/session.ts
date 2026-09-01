@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { randomBytes } from "crypto";
-import { and, eq, gt } from "drizzle-orm";
+import { and, eq, gt, lt } from "drizzle-orm";
 import { db } from "./db";
 import { users, webSessions } from "./schema";
 
@@ -10,6 +10,9 @@ const DAYS_30 = 30 * 24 * 60 * 60 * 1000;
 export type SessionUser = typeof users.$inferSelect;
 
 export async function createSession(userId: string) {
+  // faxina: some com sessões expiradas (o /painel gera uma nova a cada login)
+  await db.delete(webSessions).where(lt(webSessions.expiresAt, new Date()));
+
   const token = randomBytes(24).toString("hex");
   await db.insert(webSessions).values({
     token,

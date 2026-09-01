@@ -25,11 +25,13 @@ export function Sidebar({
 }) {
   const path = usePathname();
   const router = useRouter();
+  // enquanto vê o painel de outra pessoa (impersonação), as ferramentas de admin somem —
+  // é uma visão "como usuário". Pra usá-las, sair da impersonação (botão no rodapé).
   const items = [...NAV];
-  if (role === "admin" || role === "superadmin") {
+  if (!impersonating && (role === "admin" || role === "superadmin")) {
     items.push({ href: "/admin", label: "Pessoas", icon: AdminIcon });
   }
-  if (role === "superadmin") {
+  if (!impersonating && role === "superadmin") {
     items.push({ href: "/admin/aristotelia", label: "Ajustar IA", icon: AjustarIcon });
   }
   const isActive = (href: string) =>

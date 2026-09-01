@@ -1,14 +1,12 @@
-import { redirect } from "next/navigation";
-import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import { appSettings } from "@/lib/schema";
+import { requireSuperadmin } from "@/lib/guards";
 import { CoachForm } from "@/components/CoachForm";
 
 export const dynamic = "force-dynamic";
 
 export default async function EditarIA() {
-  const session = (await getSession())!;
-  if (session.account.role !== "superadmin") redirect("/");
+  await requireSuperadmin();
 
   const rows = await db.select().from(appSettings);
   const cur: Record<string, string> = {};

@@ -460,3 +460,13 @@ async def pop_outbox() -> list[asyncpg.Record]:
 async def mark_outbox_sent(outbox_id) -> None:
     async with pool().acquire() as con:
         await con.execute("UPDATE outbox SET sent_at = now() WHERE id = $1", outbox_id)
+
+
+# ── faxina (roda 1x/dia) ────────────────────────────────────────────
+async def cleanup_expired() -> str:
+    async with pool().acquire() as con:
+        a = await con.execute("DELETE FROM auth_codes WHERE expires_at < now() - interval '1 day'")
+        s = await con.execute("DELETE FROM web_sessions WHERE expires_at < now()")
+        o = await con.execute("DELETE FROM outbox WHERE sent_at IS NOT NULL AND sent_at < now() - interval '7 days'")
+        c = await con.execute("DELETE FROM content_cache WHERE day < current_date - 14")
+    return f"auth_codes[{a}] web_sessions[{s}] outbox[{o}] content_cache[{c}]"
