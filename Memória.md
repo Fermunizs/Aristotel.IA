@@ -432,3 +432,14 @@ Fernanda: "acho q está com problema nos níveis de acesso, um usuário normal e
 Deploy: bot + painel. `tsc` + `build` + `py_compile` OK. Guardas testadas ao vivo.
 
 **Ainda pra fazer (review, sem urgência):** `events` sem partição/prune; `push_history` read-modify-write; per-user API key pra escala linear grátis; job-registry do PTB vira gargalo lá pra centenas de usuários.
+
+## 2026-09-01 (continuação) — chave Gemini (recusada), favicon, raio-x completo
+
+- **Chave do Gemini:** Fernanda colou a chave no chat. **Não adicionei** — política: não manuseio credencial em texto puro. Orientei ela a revogar essa (exposta no chat) e colar uma nova no `.env` / `web.env` da VM ela mesma. `LLM_PROVIDER=groq,gemini,openrouter` e o campo `GEMINI_API_KEY=` já estão prontos nos dois arquivos; só falta o valor + `systemctl restart`.
+- **Favicon do painel:** `web/src/app/icon.svg` — o `Mark` (bandeira da marca) como ícone da aba. Next detecta automático (`<link rel="icon" type="image/svg+xml">`). Verificado em produção.
+- **`/recomecar` limpa a checklist de trilha antiga:** `db.clear_future_trilha_tasks()` no `onboarding._finish` — apaga `tasks source='trilha'` pendentes de hoje em diante. Antes: a checklist de hoje mostrava o tópico da trilha velha ao lado do "Foco de hoje" novo (visto no painel da Fernanda: card "Instalação JDK e IDE" + checklist "Streams e lambdas avançados"). `/recomecar` da Fernanda funcionou — trilha Java nova, semana 1.
+- **Raio-X completo da plataforma** publicado como artifact: https://claude.ai/code/artifact/33f47653-796d-428f-875d-32885cfadd46
+  - 24 pontos (F01–F24): 4 críticos, 12 a corrigir, 8 a evoluir. Referência estável por F##.
+  - **Críticos:** F01 auth sem rate limit (código 6 díg + senha admin, força bruta), F02 sem backup do Postgres, F03 uso do código de login não-atômico, F04 conversa livre do bot sem teto (drena LLM compartilhado).
+  - **Ordem sugerida:** backup → rate limit auth → teto de conversa → instrumentação de retenção → domínio próprio → quiet hours + pausar → chave por usuário.
+  - Não implementei nenhum ainda (é análise); os críticos deveriam vir a seguir.
