@@ -21,7 +21,7 @@ const SPECS: Record<string, { base: string; keyEnv: string; modelEnv: string; mo
   },
   sambanova: {
     base: "https://api.sambanova.ai/v1",
-    keyEnv: "SAMBANOVA_API_KEY", modelEnv: "SAMBANOVA_MODEL", model: "Meta-Llama-3.3-70B-Instruct",
+    keyEnv: "SAMBANOVA_API_KEY", modelEnv: "SAMBANOVA_MODEL", model: "DeepSeek-V3-0324",
   },
   mistral: {
     base: "https://api.mistral.ai/v1",
@@ -38,7 +38,7 @@ const SPECS: Record<string, { base: string; keyEnv: string; modelEnv: string; mo
   },
 };
 
-const ORDER = (process.env.LLM_PROVIDER || "gemini,groq,cerebras,sambanova,mistral,github,openrouter")
+const ORDER = (process.env.LLM_PROVIDER || "gemini,cerebras,groq,sambanova,mistral,github,openrouter")
   .split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
 
 const CHAIN: Provider[] = ORDER.flatMap((name, i) => {

@@ -28,7 +28,7 @@ DEFAULT_TZ = ZoneInfo(DEFAULT_TZ_NAME)
 # --- LLM (cadeia de provedores com fallback) --------------------------
 # A ordem = prioridade. O 1º com API key configurada é o primário; os outros
 # são fallback automático quando o de cima estoura rate limit / cai.
-# Sobrescreva a ordem com LLM_PROVIDER=gemini,groq,cerebras  (csv).
+# Sobrescreva a ordem com LLM_PROVIDER=gemini,cerebras,groq  (csv).
 # Modelo por provedor: <PROVEDOR>_MODEL no .env (ex: GROQ_MODEL=llama-3.3-70b-versatile).
 # LLM_MODEL (legado) força o modelo só do 1º provedor da lista.
 # Todos são OpenAI-compat — pra adicionar um provedor, basta uma linha aqui + a key.
@@ -57,7 +57,7 @@ _PROVIDER_SPECS = {
         "base_url": "https://api.sambanova.ai/v1",
         "api_key_env": "SAMBANOVA_API_KEY",
         "model_env": "SAMBANOVA_MODEL",
-        "default_model": "Meta-Llama-3.3-70B-Instruct",  # tb: DeepSeek-V3-0324, Qwen3-32B
+        "default_model": "DeepSeek-V3-0324",  # topo do free tier SambaNova; tb: Meta-Llama-3.3-70B-Instruct
     },
     "mistral": {
         "base_url": "https://api.mistral.ai/v1",
@@ -81,7 +81,7 @@ _PROVIDER_SPECS = {
 
 _order = [
     p.strip().lower()
-    for p in os.getenv("LLM_PROVIDER", "gemini,groq,cerebras,sambanova,mistral,github,openrouter").split(",")
+    for p in os.getenv("LLM_PROVIDER", "gemini,cerebras,groq,sambanova,mistral,github,openrouter").split(",")
     if p.strip()
 ]
 _forced_model = os.getenv("LLM_MODEL", "").strip()
