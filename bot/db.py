@@ -403,6 +403,27 @@ async def clear_reminders_dirty(user_id) -> None:
         await con.execute("UPDATE bot_state SET reminders_dirty = false WHERE user_id = $1", user_id)
 
 
+# ── conteúdo compartilhado do dia (motivação / insight) ────────────
+async def get_cached_content(kind: str, day: date) -> str | None:
+    async with pool().acquire() as con:
+        return await con.fetchval(
+            "SELECT text FROM content_cache WHERE kind = $1 AND day = $2", kind, day
+        )
+
+
+async def save_cached_content(kind: str, day: date, text: str) -> str:
+    """Grava (idempotente) e devolve o texto que ficou — se outro worker gravou antes, é o dele."""
+    async with pool().acquire() as con:
+        await con.execute(
+            "INSERT INTO content_cache (kind, day, text) VALUES ($1, $2, $3) "
+            "ON CONFLICT (kind, day) DO NOTHING",
+            kind, day, text,
+        )
+        return await con.fetchval(
+            "SELECT text FROM content_cache WHERE kind = $1 AND day = $2", kind, day
+        )
+
+
 # ── settings (identidade da Aristótel.IA) ───────────────────────────
 async def get_settings() -> dict:
     async with pool().acquire() as con:

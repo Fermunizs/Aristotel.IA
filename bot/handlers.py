@@ -67,8 +67,8 @@ async def cmd_hoje(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if user["status"] != "active":
         return await _reply(update, "Manda /start pra montar sua trilha primeiro.")
 
-    class _J:  # mini-shim pro job callback
-        data = {"user_id": str(user["id"])}
+    class _J:  # mini-shim pro job callback — advance=False: /hoje mostra, não pula o dia
+        data = {"user_id": str(user["id"]), "advance": False}
     context.job = _J()
     await daily_learning_guide(context)
 

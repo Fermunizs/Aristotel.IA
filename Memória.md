@@ -372,3 +372,41 @@ Fernanda: "o ensino dela n tá legal, está jogando um monte de informação em 
 - `bot/jobs.py::learning_check`: `events_since` agora usa `max(início do mês, data de criação do plano)` — não mistura tópicos de trilha anterior. `get_plan` já traz `created_at`.
 
 `Design.md` PARTE 1 ganhou seção "Como ela ensina". `py_compile` + smoke de `persona()`/prompts OK. Falta deploy do bot.
+
+## 2026-09-01 (continuação) — escala: fallback de LLM, conteúdo compartilhado, jitter + review
+
+Fernanda passou o bot pra colegas ("vai passar pra outros"). Pediu ideias 1+2+4, a chave grátis do Gemini e uma revisão geral pra escalar sem quebrar.
+
+### Chave Gemini
+Ela JÁ tem uma (aistudio.google.com/apikey → "Default Gemini API Key", projeto `gen-lang-client-0628080961`, Nível gratuito). Só precisa copiar (ícone de copiar na linha) e colar no `.env` (bot) e `web.env` (painel) na VM, campo `GEMINI_API_KEY=`, e reiniciar os serviços. **Não passou pela sessão** — ela faz.
+
+### Idea 1 — jitter (espalha o pico)
+`bot/scheduling.py`: `_jitter(user_id)` = offset estável 0–24 min por usuário (hash do UUID), `_shift(time, min)`. Aplicado nos lembretes E nos jobs de domingo. "Todo mundo às 08:00" vira 08:00–08:24. Determinístico → resync não muda o slot.
+
+### Idea 2 — conteúdo compartilhado do dia
+`daily_motivation` e `daily_insight` são genéricos → gerar 1x/dia e reusar entre todos.
+- Migration `0009_content_cache.sql`: tabela `content_cache (kind, day, text)`.
+- `bot/db.py`: `get_cached_content` / `save_cached_content` (INSERT ON CONFLICT DO NOTHING — race-safe, vários workers no mesmo minuto só geram 1).
+- `bot/jobs.py`: `_shared_daily()`. Se o lembrete tem `custom_text` (instrução própria), gera personalizado; senão usa o cache. Corta ~2 das ~6 chamadas de LLM agendadas por usuário/dia.
+
+### Idea 4 — cadeia de provedores com fallback
+`bot/config.py`: `LLM_PROVIDER` agora é CSV (`groq,gemini,openrouter`) = ordem de prioridade. `LLM_CHAIN` = só os que têm key. Novo provider `gemini` (endpoint OpenAI-compat, `gemini-2.0-flash`). `LLM_CONCURRENCY` (default 2).
+`bot/llm.py` reescrito: classe `_Provider` (cliente + `Semaphore(LLM_CONCURRENCY)` + cooldown PRÓPRIOS). `_call` tenta cada provedor em ordem; 429/erro num → cai pro próximo; todos falham → pool local. Antes: 1 provedor, `Lock` global (1 chamada por vez no processo inteiro) + cooldown global. Agora concorrência por-provedor e um 429 do Groq não trava o Gemini.
+`web/src/lib/coach-llm.ts`: mesma cadeia Groq→Gemini (painel).
+Na VM: `LLM_PROVIDER=groq,gemini,openrouter` já setado no `.env` e `.env.example`. Vira `[groq,gemini]` assim que ela colar a `GEMINI_API_KEY` + reiniciar.
+
+### Bug corrigido: `/hoje` pulava o dia da trilha
+`cmd_hoje` chamava `daily_learning_guide`, que avança `current_day` no fim. Toda vez que ela mandava `/hoje` pra VER o dia, a trilha andava. Agora o job lê `data["advance"]` (default True nos agendados; `cmd_hoje` passa `False`).
+Também: `micro_learning` só cria pending `micro_q` se a pílula terminou mesmo com "🎯" (evita tratar frase de fallback como pergunta).
+
+### Review — o que fica pra depois (anotado, não urgente com <20 users)
+- `push_history` é read-modify-write (race benigno, last-write-wins). Migrar pra append em SQL se crescer.
+- `events` cresce sem prune/partição — ok por 1+ ano. Depois: partição por mês ou job de limpeza.
+- `auth_codes`/`web_sessions` expirados nunca são apagados — cron simples.
+- `pop_outbox` sem `FOR UPDATE SKIP LOCKED` — ok com 1 consumidor.
+- Job registry: PTB/APScheduler com N×~10 jobs — tranquilo até ~centenas de usuários; além disso, mover pra um scheduler externo ou 1 job "tick" que varre quem tem lembrete na janela.
+- `_coach_tick` (refresh de settings a cada 120s) roda mesmo sem mudança — trocar por checar `stale()`.
+- Persona (~1.2k tokens) vai no system de toda chamada — o conteúdo compartilhado já ameniza; se apertar, versão enxuta pros jobs de broadcast.
+- Per-user API key (cada colega com a própria chave grátis) = escala linear e 100% grátis — bom próximo passo se passar de ~30 pessoas.
+
+Deploy: bot (migration 0009 aplicada, no ar) + painel. `py_compile` + `build_app()` + `tsc` OK, chamadas reais de LLM testadas (motivação, quiz 2 rodadas).

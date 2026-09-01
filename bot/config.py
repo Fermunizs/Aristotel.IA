@@ -25,15 +25,23 @@ DATABASE_URL = os.getenv(
 DEFAULT_TZ_NAME = os.getenv("TZ", "America/Sao_Paulo")
 DEFAULT_TZ = ZoneInfo(DEFAULT_TZ_NAME)
 
-# --- LLM ---------------------------------------------------------------
-LLM_PROVIDER = os.getenv("LLM_PROVIDER", "groq").strip().lower()
+# --- LLM (cadeia de provedores com fallback) --------------------------
+# A ordem = prioridade. O 1º com API key configurada é o primário; os outros
+# são fallback automático quando o de cima estoura rate limit / cai.
+# Sobrescreva a ordem com LLM_PROVIDER=gemini,groq  (csv). LLM_MODEL força o
+# modelo só do 1º provedor da lista.
 
-_PROVIDERS = {
+_PROVIDER_SPECS = {
     "groq": {
         "base_url": "https://api.groq.com/openai/v1",
         "api_key_env": "GROQ_API_KEY",
         # alternativas nesta conta: qwen/qwen3.8-27b (PT mais natural), openai/gpt-oss-20b
         "default_model": "openai/gpt-oss-120b",
+    },
+    "gemini": {
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
+        "api_key_env": "GEMINI_API_KEY",
+        "default_model": "gemini-2.0-flash",
     },
     "openrouter": {
         "base_url": "https://openrouter.ai/api/v1",
@@ -42,10 +50,33 @@ _PROVIDERS = {
     },
 }
 
-_p = _PROVIDERS.get(LLM_PROVIDER, _PROVIDERS["groq"])
-LLM_BASE_URL = _p["base_url"]
-LLM_API_KEY = os.getenv(_p["api_key_env"], "").strip()
-LLM_MODEL = os.getenv("LLM_MODEL", "").strip() or _p["default_model"]
+_order = [p.strip().lower() for p in os.getenv("LLM_PROVIDER", "groq,gemini,openrouter").split(",") if p.strip()]
+_forced_model = os.getenv("LLM_MODEL", "").strip()
+
+# lista final: só provedores conhecidos e com key; mantém a ordem pedida
+LLM_CHAIN: list[dict] = []
+for i, name in enumerate(_order):
+    spec = _PROVIDER_SPECS.get(name)
+    if not spec:
+        continue
+    key = os.getenv(spec["api_key_env"], "").strip()
+    if not key:
+        continue
+    LLM_CHAIN.append({
+        "name": name,
+        "base_url": spec["base_url"],
+        "api_key": key,
+        "model": _forced_model if (i == 0 and _forced_model) else spec["default_model"],
+    })
+
+# compat com código/scripts que ainda leem os nomes antigos
+LLM_PROVIDER = LLM_CHAIN[0]["name"] if LLM_CHAIN else _order[0] if _order else "groq"
+LLM_BASE_URL = LLM_CHAIN[0]["base_url"] if LLM_CHAIN else _PROVIDER_SPECS["groq"]["base_url"]
+LLM_API_KEY = LLM_CHAIN[0]["api_key"] if LLM_CHAIN else ""
+LLM_MODEL = LLM_CHAIN[0]["model"] if LLM_CHAIN else _PROVIDER_SPECS["groq"]["default_model"]
+
+# concorrência máxima de chamadas ao LLM POR PROVEDOR (free tier tem RPM baixo)
+LLM_CONCURRENCY = max(1, int(os.getenv("LLM_CONCURRENCY", "2")))
 
 # --- Painel web ------------------------------------------------------
 WEB_URL = os.getenv("WEB_URL", "http://localhost:3000").strip().rstrip("/")

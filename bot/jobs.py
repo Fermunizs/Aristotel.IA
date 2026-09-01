@@ -47,14 +47,28 @@ async def _deliver(context, user, chat, title: str, text: str) -> None:
         await send_text(context.bot, chat, text)
 
 
+async def _shared_daily(user, kind: str, prompt_body: str, user_msg: str, temperature: float) -> str:
+    """Conteúdo genérico do dia: gera 1x e compartilha entre todos (escala melhor).
+    Se o lembrete tem instrução própria, o chamador NÃO usa isto — gera personalizado."""
+    day = now_for(user).date()
+    cached = await db.get_cached_content(kind, day)
+    if cached:
+        return cached
+    text = await ask(prompts.persona() + "\n\n" + prompt_body, user_msg,
+                     temperature=temperature, max_tokens=220)
+    return await db.save_cached_content(kind, day, text)
+
+
 async def daily_motivation(context: ContextTypes.DEFAULT_TYPE) -> None:
     user, chat = await _ctx(context)
     if not user:
         return
-    plan = await db.get_plan(user["id"])
-    goal = plan["goal"] if plan else None
-    frase = await ask(prompts.persona(user["name"], goal, user["coach_tone"], user["coach_note"]) + "\n\n" + prompts.MOTIVATION + _note(context),
-                      "Gere a frase de hoje.", temperature=1.0, max_tokens=200)
+    note = _note(context)
+    if note:  # lembrete com pedido específico → frase pra essa pessoa
+        frase = await ask(prompts.persona(user["name"], None, user["coach_tone"], user["coach_note"]) + "\n\n" + prompts.MOTIVATION + note,
+                          "Gere a frase de hoje.", temperature=1.0, max_tokens=200)
+    else:
+        frase = await _shared_daily(user, "motivation", prompts.MOTIVATION, "Gere a frase de hoje.", 1.0)
     await _deliver(context, user, chat, "Provocação da manhã", f"🌅 {frase}")
     await db.log_event(user["id"], "msg:motivation", now_for(user).date())
 
@@ -74,8 +88,9 @@ async def daily_learning_guide(context: ContextTypes.DEFAULT_TYPE) -> None:
     if topic:
         await db.add_task(user["id"], day, "trilha", topic["topic"], topic["goal"])
     await db.log_event(user["id"], "msg:guide", day)
-    _advance_day(plan)
-    await db.update_plan_position(user["id"], plan["current"]["week"], plan["current"]["day"])
+    if (getattr(context, "job", None) and context.job.data or {}).get("advance", True):
+        _advance_day(plan)
+        await db.update_plan_position(user["id"], plan["current"]["week"], plan["current"]["day"])
 
 
 async def micro_learning(context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -88,12 +103,13 @@ async def micro_learning(context: ContextTypes.DEFAULT_TYPE) -> None:
     texto = await ask(prompts.persona(user["name"], plan["goal"], user["coach_tone"], user["coach_note"]) + "\n\n" + prompts.MICRO_LEARNING + _note(context),
                       prompts.learning_context(plan), temperature=0.7, max_tokens=280)
     await _deliver(context, user, chat, "Pílula de conteúdo", f"📚 *Conteúdo rápido*\n\n{texto}")
-    topic = prompts.today_topic(plan)
-    await db.set_pending(user["id"], {
-        "type": "micro_q",
-        "topico": (topic or {}).get("topic", plan["goal"]),
-        "pergunta": texto.split("🎯")[-1].strip()[:300],
-    })
+    if "🎯" in texto:  # só espera resposta se a pílula realmente terminou com pergunta
+        topic = prompts.today_topic(plan)
+        await db.set_pending(user["id"], {
+            "type": "micro_q",
+            "topico": (topic or {}).get("topic", plan["goal"]),
+            "pergunta": texto.split("🎯")[-1].strip()[:300],
+        })
     await db.log_event(user["id"], "msg:micro", now_for(user).date())
 
 
@@ -138,10 +154,14 @@ async def daily_insight(context: ContextTypes.DEFAULT_TYPE) -> None:
     user, chat = await _ctx(context)
     if not user:
         return
-    plan = await db.get_plan(user["id"])
-    goal = plan["goal"] if plan else None
-    texto = await ask(prompts.persona(user["name"], goal, user["coach_tone"], user["coach_note"]) + "\n\n" + prompts.INSIGHT + _note(context),
-                      "Gere o insight de hoje.", temperature=0.9, max_tokens=260)
+    note = _note(context)
+    if note:
+        plan = await db.get_plan(user["id"])
+        goal = plan["goal"] if plan else None
+        texto = await ask(prompts.persona(user["name"], goal, user["coach_tone"], user["coach_note"]) + "\n\n" + prompts.INSIGHT + note,
+                          "Gere o insight de hoje.", temperature=0.9, max_tokens=260)
+    else:
+        texto = await _shared_daily(user, "insight", prompts.INSIGHT, "Gere o insight de hoje.", 0.9)
     await _deliver(context, user, chat, "Insight", f"🧠 *Insight*\n\n{texto}")
     await db.log_event(user["id"], "msg:insight", now_for(user).date())
 

@@ -20,6 +20,19 @@ def unschedule_user(app: Application, user_id) -> None:
             job.schedule_removal()
 
 
+_JITTER_WINDOW = 25  # min — espalha o "pico" (todo mundo às 08:00 vira 08:00–08:24)
+
+
+def _jitter(user_id) -> int:
+    """Deslocamento estável (0..window-1 min) por usuário. Mesma pessoa, mesmo offset sempre."""
+    return int(str(user_id).replace("-", "")[:8], 16) % _JITTER_WINDOW
+
+
+def _shift(t: time, minutes: int) -> time:
+    total = (t.hour * 60 + t.minute + minutes) % (24 * 60)
+    return time(total // 60, total % 60)
+
+
 def _reminder_time(rem: dict) -> time | None:
     if rem["schedule_type"] == "fixo" and rem["at_time"]:
         return rem["at_time"]
@@ -35,6 +48,7 @@ async def schedule_user(app: Application, user) -> None:
         return
 
     tz = user_tz(user)
+    off = _jitter(user["id"])
     reminders = await db.get_reminders(user["id"])
     n = 0
     for rem in reminders:
@@ -44,6 +58,7 @@ async def schedule_user(app: Application, user) -> None:
         t = _reminder_time(rem)
         if not fn or not t:
             continue
+        t = _shift(t, off)  # espalha o pico
         days = tuple(sorted(int(d) for d in rem["days"]))
         app.job_queue.run_daily(
             fn,
@@ -62,7 +77,7 @@ async def schedule_user(app: Application, user) -> None:
     for fn_name, t in config.WEEKLY_TIMES.items():
         app.job_queue.run_daily(
             WEEKLY_JOBS[fn_name],
-            time=t.replace(tzinfo=tz),
+            time=_shift(t, off).replace(tzinfo=tz),
             name=f"{user['id']}:wk:{fn_name}",
             data={"user_id": str(user["id"])},
         )

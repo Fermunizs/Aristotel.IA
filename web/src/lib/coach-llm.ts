@@ -1,26 +1,39 @@
-// Cliente mínimo do Groq (OpenAI-compat) pro painel web.
-// A bot tem o rate-limiter pesado (bot/llm.py); aqui as chamadas são manuais
-// e raras (a pessoa toca 1 dia da trilha), então basta 1 retry em 429.
+// Cliente mínimo de LLM (OpenAI-compat) pro painel web, com fallback Groq → Gemini.
+// A bot tem o rate-limiter pesado (bot/llm.py); aqui as chamadas são manuais e
+// raras (a pessoa toca 1 dia da trilha), então basta 1 retry + cair pro Gemini.
 
-const BASE = process.env.LLM_BASE_URL || "https://api.groq.com/openai/v1";
-const KEY = process.env.GROQ_API_KEY || "";
-const MODEL = process.env.LLM_MODEL || "openai/gpt-oss-120b";
+type Provider = { name: string; base: string; key: string; model: string };
+
+const CHAIN: Provider[] = [
+  {
+    name: "groq",
+    base: process.env.LLM_BASE_URL || "https://api.groq.com/openai/v1",
+    key: process.env.GROQ_API_KEY || "",
+    model: process.env.LLM_MODEL || "openai/gpt-oss-120b",
+  },
+  {
+    name: "gemini",
+    base: "https://generativelanguage.googleapis.com/v1beta/openai",
+    key: process.env.GEMINI_API_KEY || "",
+    model: "gemini-2.0-flash",
+  },
+].filter((p) => p.key);
 
 type Msg = { role: "system" | "user"; content: string };
 
-async function chat(messages: Msg[], maxTokens: number): Promise<string> {
+async function callOne(p: Provider, messages: Msg[], maxTokens: number): Promise<string> {
   const body: Record<string, unknown> = {
-    model: MODEL,
+    model: p.model,
     messages,
     temperature: 0.4,
     max_tokens: maxTokens,
   };
-  if (MODEL.includes("gpt-oss")) body.reasoning_effort = "low";
+  if (p.model.includes("gpt-oss")) body.reasoning_effort = "low";
 
   for (let attempt = 0; attempt < 2; attempt++) {
-    const res = await fetch(`${BASE}/chat/completions`, {
+    const res = await fetch(`${p.base}/chat/completions`, {
       method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${KEY}` },
+      headers: { "content-type": "application/json", authorization: `Bearer ${p.key}` },
       body: JSON.stringify(body),
     });
     if (res.status === 429 && attempt === 0) {
@@ -28,11 +41,24 @@ async function chat(messages: Msg[], maxTokens: number): Promise<string> {
       await new Promise((r) => setTimeout(r, Math.min(wait, 20) * 1000));
       continue;
     }
-    if (!res.ok) throw new Error(`groq ${res.status}: ${await res.text().catch(() => "")}`);
+    if (!res.ok) throw new Error(`${p.name} ${res.status}: ${await res.text().catch(() => "")}`);
     const json = await res.json();
     return (json.choices?.[0]?.message?.content ?? "").trim();
   }
-  throw new Error("groq rate limit persistente");
+  throw new Error(`${p.name} rate limit persistente`);
+}
+
+async function chat(messages: Msg[], maxTokens: number): Promise<string> {
+  if (!CHAIN.length) throw new Error("nenhum provedor de LLM configurado");
+  let last: unknown;
+  for (const p of CHAIN) {
+    try {
+      return await callOne(p, messages, maxTokens);
+    } catch (e) {
+      last = e;
+    }
+  }
+  throw new Error(`todos os provedores falharam: ${last}`);
 }
 
 /** Extrai o primeiro objeto JSON de um texto (o modelo às vezes embrulha em ```). */
