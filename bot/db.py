@@ -160,6 +160,12 @@ async def create_plan(user_id, goal: str, level: str, weeks: list) -> None:
         )
 
 
+async def deactivate_plan(user_id) -> None:
+    """Desativa a trilha atual — usado no /recomecar antes de gerar uma nova."""
+    async with pool().acquire() as con:
+        await con.execute("UPDATE learning_plans SET active = false WHERE user_id = $1", user_id)
+
+
 async def update_plan_position(user_id, week: int, day: int) -> None:
     async with pool().acquire() as con:
         await con.execute(

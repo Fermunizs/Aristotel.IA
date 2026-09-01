@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Mark, Wordmark } from "./art";
+import { ThemeToggle } from "./ThemeToggle";
 
 const NAV = [
   { href: "/", label: "Hoje", icon: HojeIcon },
@@ -81,7 +82,7 @@ export function Sidebar({
           })}
         </nav>
 
-        <div className="mt-auto border-t border-line pt-4 text-sm">
+        <div className="mt-auto space-y-3 border-t border-line pt-4 text-sm">
           {impersonating ? (
             <button onClick={stopImpersonate} className="text-clay">
               ← vendo {name}
@@ -94,8 +95,15 @@ export function Sidebar({
               </button>
             </div>
           )}
+          <div className="flex items-center justify-between text-ink-soft">
+            <span className="text-xs">Tema</span>
+            <ThemeToggle />
+          </div>
         </div>
       </aside>
+
+      {/* mobile: botão de tema flutuante, acima da barra */}
+      <ThemeToggle className="fixed bottom-20 right-4 z-30 bg-paper shadow-lg md:hidden" />
 
       {/* mobile: barra inferior */}
       <nav className="fixed inset-x-0 bottom-0 z-20 flex justify-around border-t border-line bg-paper py-2 md:hidden">

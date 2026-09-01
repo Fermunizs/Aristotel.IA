@@ -34,6 +34,31 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await _reply(update, "🌅 Já tá tudo rodando. /hoje pra ver o de hoje, /plano pra ver a trilha.")
 
 
+async def cmd_recomecar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Refaz o onboarding e gera uma trilha nova. Mantém streak, evolução e conteúdo."""
+    user = await _me(update)
+    plan = await db.get_plan(user["id"])
+    if not plan:
+        await db.set_status(user["id"], "onboarding")
+        return await onboarding.start(update, context, user)
+    await db.set_pending(user["id"], {"type": "recomecar_confirm"})
+    await _reply(
+        update,
+        "🔄 Isso apaga sua trilha atual e monta uma nova do zero "
+        "(seu streak, evolução e banco de conteúdo continuam).\n\n"
+        "Manda *sim* pra confirmar.",
+    )
+
+
+async def _recomecar_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE, user, text: str) -> None:
+    if not text.strip().lower().startswith(("s", "y")):
+        await db.set_pending(user["id"], None)
+        return await _reply(update, "Deixa quieto — trilha atual mantida.")
+    await db.deactivate_plan(user["id"])
+    await db.set_status(user["id"], "onboarding")
+    await onboarding.start(update, context, user)
+
+
 async def cmd_hoje(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     from .jobs import daily_learning_guide
     user = await _me(update)
@@ -144,6 +169,9 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     if ptype == "onboarding":
         return await onboarding.handle(update, context, user, pending)
+
+    if ptype == "recomecar_confirm":
+        return await _recomecar_confirm(update, context, user, text)
 
     await db.push_history(user["id"], "user", text)
 

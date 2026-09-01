@@ -17,11 +17,26 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
 };
 
-export const viewport = { themeColor: "#fbf7f0" };
+export const viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#fbf7f0" },
+    { media: "(prefers-color-scheme: dark)", color: "#1b1e1c" },
+  ],
+};
+
+// aplica o tema salvo antes da 1ª pintura (evita flash claro→escuro)
+const THEME_SCRIPT = `try{var t=localStorage.getItem('tema');if(t==='dark')document.documentElement.dataset.theme='dark';}catch(e){}`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" className={`${fraunces.variable} ${inter.variable} ${spaceMono.variable}`}>
+    <html
+      lang="pt-BR"
+      className={`${fraunces.variable} ${inter.variable} ${spaceMono.variable}`}
+      suppressHydrationWarning
+    >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body>
         {children}
         <script

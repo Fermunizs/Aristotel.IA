@@ -240,6 +240,48 @@ O namorado da Fernanda (chat 6751488447, objetivo "IA pra geração de vídeos c
 - Conta do namorado recuperada à mão: 7 lembretes, `active`, agendado, `plan='unlimited'`, 3 planos duplicados apagados.
 - **Aprendizado:** testar o onboarding COMPLETO de um usuário novo antes de anunciar — a Fernanda nunca passou por esse path (os lembretes dela vieram do backfill da migration 0001).
 
+## 2026-08-31 — trilha clicável (ver detalhes do dia)
+
+- `web/src/components/TrailMap.tsx` virou client component (`"use client"`). Cada pedra E cada rótulo de tópico agora são clicáveis (alvo de toque invisível r=24 no SVG, `role="button"` + teclado).
+- Ao tocar um dia abre um **bottom sheet** (`DayDetail`) com: "Semana N · Dia N", tema da semana, badge de status (concluído / é hoje / vem aí), tópico completo e o **objetivo (`goal`)** — que o LLM já gerava no onboarding mas nunca aparecia na tela. Fecha no backdrop ou no botão.
+- Pedra selecionada ganha anel tracejado clay.
+- Página `trilha`: subtítulo agora convida "Toque em qualquer dia pra ver o objetivo dele".
+- `scripts/deploy-web.sh`: troquei `rsync` (não existe no bash do Windows) por `rm -rf + cp -r`.
+- Sem migration. Deployado.
+- **Ação na gaveta:** só pro dia atual ("é hoje") aparecem 2 botões — "já domino isso — pular" (= `/jasei`: adiciona o tópico em `known_topics` + anda 1 passo) e "pular só hoje" (= `/skip`). Dias passados/futuros ficam só leitura.
+- `web/src/app/api/trilha/route.ts` (POST `{action: "jasei"|"skip"}`) — replica `bot/handlers.py::_advance` em TS, escopo `session.viewing.id`. Não bumpa `updated_at` (o bot não usa esse campo em lógica).
+
+## 2026-08-31 — trilha: detalhamento gerado + checklist por dia (v2)
+
+Feedback da Fernanda: o "ver detalhes" não abria (bug) e ela queria um card com **detalhamento específico da atividade + checklist bem detalhado, não genérico**.
+
+- **Bug do card que não abria:** `.card` tem `backdrop-filter: blur()` → vira containing block pra `position: fixed`, e `.card` é `overflow-hidden` → a gaveta era recortada/some. **Corrigido:** `DayDetail` agora é renderizado via `createPortal(…, document.body)`, fora da subárvore do card. Também: trava scroll do body, fecha no Esc.
+- **Detalhamento por dia gerado pela IA, sob demanda:**
+  - `web/src/lib/coach-llm.ts` — cliente Groq mínimo no web (fetch direto no endpoint OpenAI-compat, 1 retry em 429). Sem SDK novo. Lê `GROQ_API_KEY` / `LLM_MODEL` do env.
+  - `web/src/lib/trilha-detail.ts` — `getOrMakeDetail(userId, week, day)`: se `day.detail` já existe no JSON do plano, retorna; senão gera `{resumo, checklist:[{t,min,done}], entrega, dica}` e **cacheia dentro de `learning_plans.weeks`** (sem migration — o dia ganha a chave `detail`). Prompt força passos acionáveis e específicos do tópico, soma dos `min` ≈ `minutes_per_day`. `toggleChecklistItem(...)` persiste o check no mesmo JSON.
+  - `web/src/app/api/trilha/detail/route.ts` — `POST {week,day}` gera/retorna; `PATCH {week,day,index,done}` marca item.
+  - `TrailMap` `DayDetail`: ao abrir, busca o detalhamento (skeleton enquanto carrega, "tentar de novo" em erro com fallback pro `goal`). Renderiza resumo + checklist clicável (com min por passo e contador X/N · ~T min) + "no fim você tem" (entrega) + "fica esperta" (dica). Botões jasei/skip seguem só pro dia atual.
+- **`GROQ_API_KEY` + `LLM_MODEL` adicionados a `~/aristotelia-web/web.env`** na VM (mesma key do bot). Systemd `aristotelia-web` já carrega via `EnvironmentFile`.
+- Testado em produção com a sessão da Fernanda: gera checklist específico (Streams/generics Java), cacheia, toggle persiste. OK.
+- **Nota de custo:** chamada Groq no web é manual (1 toque = 1 dia, e cacheado pra sempre). Risco de colidir com o batch das 8h é baixo; se 429, mostra "tentar de novo". Não passou pelo rate-limiter do bot de propósito.
+
+## 2026-08-31 — namorado recebeu lembretes que não configurou (o bug de onboarding de novo)
+
+Fernanda: "meu namorado configurou apenas um lembrete e ele recebeu o 7º (Fechamento)".
+
+**Forense:**
+- O banco foi (re)criado hoje ~14:29 UTC (0001 aplicado hoje; volume `arist_pgdata` intacto, mas `_migrations` estava vazio → schema novo). Os dois usuários tiveram que refazer onboarding.
+- O namorado refez o onboarding **17:42–17:56 BRT com o bot ainda rodando código ANTIGO** (`_DEFAULT_REMINDERS` com string `'06:00'`) → `create_default_reminders` crashava (`DataError: 'str' object has no attribute 'hour'`) no `_finish`. Ele retentou várias vezes → cada retry re-rodava `build_trilha` (5 chamadas Groq) e criava um `learning_plan` duplicado.
+- **17:57:58 BRT o bot foi redeployado com o fix.** Aí o `_finish` (idempotente) pegou um plano existente → `_activate` → `create_default_reminders` (agora funciona) → criou os **7 lembretes padrão**. O 1 lembrete que ele tinha configurado antes do reset já tinha sumido.
+- Não é vazamento de dado da Fernanda — os "meus 5 lembretes" = os tipos padrão que ela também tem. Conteúdo dele vem da trilha dele.
+
+**Ação:**
+- `DELETE FROM reminders` do namorado (7 linhas) + `pending=NULL` + `reminders_dirty=true`. Ele começa do zero e adiciona o que quer em `/lembretes` (plano `unlimited`, sem limite).
+- Bot no ar desde 17:57 já tem o código certo — esse caminho quebrado não repete no double-`/start` normal (só num reset total de banco, que é raro).
+- Fernanda colocou o namorado como `superadmin` de propósito (confirmado). Isso dá pra ele: aba "Pessoas", impersonar qualquer usuária, editar a identidade da Aristótel.IA. Mantido como ela pediu.
+
+**Pendência:** descobrir quem/o quê recriou o banco hoje às 14:29 (container `arist-pg` foi recriado ~14:10 UTC). Se foi `docker compose up` sem querer, cuidar pra não repetir — é o que apaga tudo.
+
 **Ainda por fazer:**
 1. Fase 2 itens 3-4: e-mail · Google Calendar. Trilha adaptativa. Dashboard de evolução completo.
 2. Memória mais longa (a bot lembrar "ontem você travou em X") — hoje só 14 msgs.
@@ -248,3 +290,49 @@ O namorado da Fernanda (chat 6751488447, objetivo "IA pra geração de vídeos c
 2. Merge `fase-1` → `main` + reescrever `Claude.md` (arquitetura Fase 1/2 completa).
 3. Domínio próprio → Caddy + named tunnel (URL estável, e a PWA precisa de HTTPS estável pro push não quebrar).
 4. Validação: 20-30 pessoas da beachhead.
+
+## 2026-08-31 (continuação) — painel em tema dark calmo
+
+Fernanda: "consegue colocar um tema dark o painel? mas um tema dark calmo".
+
+**Feito:** a paleta do painel web vive toda em tokens `@theme` do Tailwind v4 em `web/src/app/globals.css` e os componentes já usam só esses tokens (`bg-paper`, `text-ink`, `border-line`, `bg-clay-soft`, etc.) — então foi troca de paleta, sem mexer em componente.
+
+- `globals.css`: paleta trocada para dark morno e baixo contraste (nada de preto puro nem branco puro):
+  - `--color-paper #1b1e1c` · `--color-paper-2 #262a27` · `--color-ink #e6e1d6` · `--color-ink-soft #9c9488` · `--color-line #383d39` · `--color-trail #4f463a`
+  - acentos suaves: `--color-growth #5fa982` · `--color-growth-soft #22322b` · `--color-clay #d1794f` · `--color-clay-soft #3a271e` · `--color-forest #060807` (só usado como scrim de modal)
+  - `color-scheme: dark`. `body::before` (manchas de cor atrás do vidro) com alpha bem menor pra ficar calmo.
+  - `.card` reescrito pra vidro escuro (fundo `paper-2` translúcido, borda/inset com `#ffffff` ~8%, sombras pretas). `.card-solid` agora usa `paper-2` (inputs/modais ganham contraste).
+- `web/src/components/TrailMap.tsx`: scrim do modal `bg-forest/30` → `bg-forest/70`.
+- `web/src/app/layout.tsx`: `viewport.themeColor` `#fbf7f0` → `#1b1e1c`.
+- `web/public/manifest.json`: `background_color` / `theme_color` → `#1b1e1c`.
+
+Sem toggle claro/escuro — ela pediu dark, ponto. `npx tsc --noEmit` limpo. Não rodei `next build` (páginas são dinâmicas, sem risco de tipo nas mudanças).
+
+## 2026-09-01 — tema claro/escuro no painel + /recomecar (nova trilha)
+
+Fernanda: "não encontrei o tema escuro" (o dark de ontem só estava no código, não deployado) "e além disso quero uma função para resetar o onboarding e poder gerar uma nova trilha". Escolhas dela: **toggle** claro/escuro (não dark fixo), reset acionável **nos dois** lugares (Telegram + painel), reset apaga **só a trilha** (mantém streak/evolução/conteúdo).
+
+### Tema claro/escuro (toggle)
+- `web/src/app/globals.css`: paleta clara segue no `@theme` (padrão). Tema escuro calmo em `:root[data-theme="dark"]` sobrescrevendo os tokens `--color-*` — o Tailwind v4 lê via `var()`, então todas as utilities (`bg-paper`, `text-ink`…) trocam sozinhas. Verificado com build de produção + browser: `data-theme=dark` → `body` vira `rgb(27,30,28)`.
+- Superfícies (`.card`, `.card-solid`, atmosfera `body::before`) agora usam custom props `--card-*` / `--atmos`, com variante clara no `:root` e escura no bloco dark. Sem duplicar regra.
+- `web/src/components/ThemeToggle.tsx` (novo): botão sol/lua, grava `localStorage['tema']`, seta `document.documentElement.dataset.theme`.
+- `web/src/app/layout.tsx`: `<head>` com script inline que aplica o tema salvo antes da 1ª pintura (evita flash). `suppressHydrationWarning` no `<html>`. `viewport.themeColor` virou array claro/escuro por `prefers-color-scheme`.
+- `web/src/components/Sidebar.tsx`: toggle no rodapé (desktop) + botão flutuante `bottom-20 right-4` no mobile.
+- Paleta dark: paper #1b1e1c · paper-2 #262a27 · ink #e6e1d6 · ink-soft #9c9488 · line #383d39 · trail #4f463a · growth #5fa982 · growth-soft #22322b · clay #d1794f · clay-soft #3a271e · forest #060807. `manifest.json` voltou pro claro.
+- `TrailMap.tsx`: scrim do modal `bg-forest/30` → `/40` (meio-termo pros dois temas).
+
+### /recomecar + botão no painel
+- **Bot** `bot/handlers.py`: `cmd_recomecar` → se tem trilha ativa, pede confirmação (`pending={type:"recomecar_confirm"}`); no `sim`, `db.deactivate_plan` + status `onboarding` + `onboarding.start`. `on_text` roteia `recomecar_confirm`. Registrado em `bot/main.py` (`/recomecar`).
+- `bot/db.py`: `deactivate_plan(user_id)` (novo) — `UPDATE learning_plans SET active=false`.
+- `bot/jobs.py`: `_ctx` agora ignora quem não está `active` (não dispara lembrete no meio do onboarding).
+- `bot/onboarding.py::_finish` tem guarda de idempotência (`get_plan` existente → só reativa). Como o reset desativa o plano antes, `_finish` gera trilha nova normalmente. Janela curta sem plano ativo é coberta pelo guard do `_ctx`.
+- **Painel** `web/src/app/api/trilha/reset/route.ts` (novo): desativa plano + status `onboarding` + grava `bot_state.pending` = onboarding/goal + enfileira `outbox` com a 1ª pergunta (espelha `prompts.ONB_GOAL`). A pessoa responde no Telegram e o bot gera a trilha.
+- `web/src/lib/schema.ts`: add tabela `outbox` + coluna `bot_state.pending` (jsonb).
+- `web/src/components/ResetTrilha.tsx` (novo) em `Ajustes` (só `!readOnly`): botão "Recomeçar trilha" com confirmação, depois manda abrir o Telegram.
+- Sem migration nova — `outbox` e `pending` já existem em `db/migrations/0001_init.sql`; só faltavam no schema drizzle do web.
+
+**Build:** `next build` OK (rota `/api/trilha/reset` no manifesto). `py_compile` dos módulos do bot OK.
+
+**Deploy (feito 2026-09-01 ~09:03):**
+- Painel: `bash scripts/deploy-web.sh` — build OK, rota `/api/trilha/reset` no manifesto, `aristotelia-web` active. `/entrar` já serve o script de tema.
+- Bot: `tar czf - --exclude=__pycache__ bot db requirements.txt | ssh … 'tar xzf - -C ~/aristotelia && .venv/bin/pip install -q -r requirements.txt && sudo systemctl restart aristotelia'` — subiu limpo, scheduler + outbox rodando. (CLAUDE.md §6 estava desatualizado — não usar `tar .`, que puxa o `web/` inteiro.)

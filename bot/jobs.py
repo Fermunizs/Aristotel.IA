@@ -24,6 +24,8 @@ async def _ctx(context: ContextTypes.DEFAULT_TYPE):
     user = await db.get_user(uid)
     if not user or not user["telegram_chat_id"]:
         return None, None
+    if user["status"] != "active":  # ex.: refazendo o onboarding (/recomecar) — não dispara lembrete
+        return None, None
     return user, user["telegram_chat_id"]
 
 

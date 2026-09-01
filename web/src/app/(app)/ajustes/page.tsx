@@ -3,6 +3,7 @@ import { getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import { preferences } from "@/lib/schema";
 import { AjustesForm } from "@/components/AjustesForm";
+import { ResetTrilha } from "@/components/ResetTrilha";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,13 @@ export default async function Ajustes() {
         note={p?.coachNote ?? ""}
         readOnly={readOnly}
       />
+
+      {!readOnly && (
+        <div>
+          <p className="label mb-2">Trilha</p>
+          <ResetTrilha botHandle={process.env.TELEGRAM_BOT ?? "AristotelIA_bot"} />
+        </div>
+      )}
     </div>
   );
 }

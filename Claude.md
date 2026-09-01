@@ -99,6 +99,7 @@ AristotelIA/
 | Comando      | Ação |
 |--------------|------|
 | `/start`     | Registra o `chat_id` e manda boas-vindas. **Precisa ser rodado uma vez** para os agendamentos funcionarem. |
+| `/recomecar` | Refaz o onboarding (4 perguntas) e gera uma trilha nova. Pede `sim` pra confirmar. Mantém streak, evolução e conteúdo. Também acionável pelo painel (Ajustes → Trilha → "Recomeçar trilha"). |
 | `/hoje`      | Dispara o guia do dia sob demanda. |
 | `/jasei`     | Marca o tópico atual como dominado e pula para o próximo. |
 | `/skip`      | Pula para o próximo dia sem marcar como dominado. |
@@ -152,7 +153,8 @@ Depois, no Telegram, mandar `/start` para o bot.
 - **Nunca clicar em "Upgrade to Pay As You Go"** no painel Oracle — é o que quebraria a garantia de custo zero.
 
 **Serviço:** `systemd` unit `aristotelia.service` (`Restart=always`, `enable`d → sobe no boot).
-Roda `/home/ubuntu/aristotelia/.venv/bin/python -m src.main` em `/home/ubuntu/aristotelia`.
+Roda `/home/ubuntu/aristotelia/.venv/bin/python -m bot.main` em `/home/ubuntu/aristotelia` (Python 3.10).
+O painel web é outro serviço: `aristotelia-web.service` (Node 20, `~/aristotelia-web`), deploy via `bash scripts/deploy-web.sh`.
 
 **Acesso SSH** (chave privada em `C:\Users\DELL\.ssh\aristotelia_oracle`):
 
@@ -168,17 +170,15 @@ sudo journalctl -u aristotelia -f -o cat        # logs ao vivo
 sudo systemctl restart aristotelia
 ```
 
-**Redeploy depois de mudar código** (rodar na raiz do projeto local, Git Bash):
+**Redeploy do bot depois de mudar código** (raiz do projeto local, Git Bash) — envia só `bot/`, `db/` e `requirements.txt` (NÃO `tar .` — puxaria o `web/` inteiro):
 
 ```bash
-tar czf - --exclude=.venv --exclude=__pycache__ --exclude=.git \
-  --exclude='data/progress.json' --exclude='data/content_bank.json' --exclude='data/daily_log.json' . \
-| ssh -i ~/.ssh/aristotelia_oracle ubuntu@147.15.46.51 'tar xzf - -C ~/aristotelia'
-ssh -i ~/.ssh/aristotelia_oracle ubuntu@147.15.46.51 \
-  '~/aristotelia/.venv/bin/pip install -q -r ~/aristotelia/requirements.txt && sudo systemctl restart aristotelia'
+tar czf - --exclude='__pycache__' bot db requirements.txt \
+| ssh -i ~/.ssh/aristotelia_oracle ubuntu@147.15.46.51 \
+  'tar xzf - -C ~/aristotelia && ~/aristotelia/.venv/bin/pip install -q -r ~/aristotelia/requirements.txt && sudo systemctl restart aristotelia && sleep 3 && systemctl is-active aristotelia'
 ```
 
-(os 3 `data/*.json` de runtime ficam só no VM — não sobrescrever.)
+O `.env` e o estado ficam só no VM (Postgres em Docker `arist-pg`) — o tar acima não toca neles.
 
 **O `.env` no VM** está em `/home/ubuntu/aristotelia/.env` (mesmo conteúdo do local).
 

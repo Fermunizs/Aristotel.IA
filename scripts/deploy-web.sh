@@ -15,7 +15,7 @@ if [ ! -d "$BUILD/node_modules" ]; then
   rm -rf "$BUILD" && mkdir -p "$BUILD"
   cp -r "$SRC"/{src,public,package.json,package-lock.json,next.config.ts,tsconfig.json,postcss.config.mjs,next-env.d.ts,node_modules} "$BUILD/"
 else
-  rsync -a --delete "$SRC/src/" "$BUILD/src/"
+  rm -rf "$BUILD/src" && cp -r "$SRC/src" "$BUILD/src"
   cp "$SRC/next.config.ts" "$SRC/package.json" "$BUILD/"
 fi
 

@@ -113,6 +113,16 @@ export const reminders = pgTable("reminders", {
 export const botState = pgTable("bot_state", {
   userId: uuid("user_id").primaryKey(),
   remindersDirty: boolean("reminders_dirty").notNull(),
+  pending: jsonb("pending"),
+});
+
+// Mensagens que o web quer que o bot mande no Telegram (bot/main.py::_outbox_tick).
+export const outbox = pgTable("outbox", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull(),
+  text: text("text").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
 });
 
 export const appSettings = pgTable("app_settings", {

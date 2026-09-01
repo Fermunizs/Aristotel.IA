@@ -31,7 +31,7 @@ export default async function Trilha() {
         <h1 className="mt-1 text-[clamp(1.6rem,4vw,2.4rem)]">{d.plan.goal}</h1>
         <p className="mt-2 text-sm text-ink-soft">
           Você andou <span className="text-growth">{walked}</span> de {total} passos.
-          Aristóteles ensinava caminhando — sua vez.
+          Toque em qualquer dia pra ver o objetivo dele.
         </p>
       </header>
 
