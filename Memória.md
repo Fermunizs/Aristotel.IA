@@ -537,6 +537,8 @@ Conversa livre com a treinadora direto no painel, **mesma memória** do bot (`bo
 ### Verificação
 - `py_compile bot/*.py` OK; `build_app()` OK (13 handlers); `_in_quiet` testado com 7 casos (meia-noite, sem janela, janela degenerada).
 - `web`: `tsc --noEmit` limpo, `next build` OK (rotas `/conversar`, `/api/chat`, `/api/prefs`, `/lembretes` compiladas). ESLint não está configurado no projeto (nunca esteve) — validação é tsc+build, como nas sessões anteriores.
-- **Ainda não fiz deploy** nem testei chamada real de LLM da aba Conversar em produção — aguardando ok da Fernanda pra subir bot + painel.
+- **Deploy feito:** bot (`systemctl is-active` → active, polling ok, 0 erro no log) + painel (`aristotelia-web` active). Smoke test em prod: `/conversar` e `/lembretes` → 307 (redirect p/ login, rota ok), `/api/chat` GET → 405 (só POST, ok). Chamada real de LLM da aba Conversar não deu pra testar sem sessão logada — a Fernanda confirma abrindo o painel.
+
+**Não configurado (e nunca esteve no escopo): integração com Google / Outlook / e-mail.** O login do painel é código de 6 díg do Telegram + senha admin. Canais de lembrete: `telegram` e `push` (web push) funcionam; `email` existe no enum do schema mas é Fase 2, sem implementação. Não há sync de calendário nem "entrar com Google". Se a Fernanda quiser, é trabalho à parte (OAuth + Google Calendar API / Microsoft Graph, ou provedor de e-mail transacional).
 
 **Nota pra sincronia:** `bot/coach.py::persona()` e `web/src/lib/persona.ts` são cópias manuais. Mudou uma → mudar a outra.
