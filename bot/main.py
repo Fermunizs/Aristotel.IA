@@ -83,6 +83,8 @@ def build_app() -> Application:
 
     app.add_handler(CommandHandler("start", handlers.cmd_start))
     app.add_handler(CommandHandler("recomecar", handlers.cmd_recomecar))
+    app.add_handler(CommandHandler("pausar", handlers.cmd_pausar))
+    app.add_handler(CommandHandler("voltar", handlers.cmd_voltar))
     app.add_handler(CommandHandler("hoje", handlers.cmd_hoje))
     app.add_handler(CommandHandler("jasei", handlers.cmd_jasei))
     app.add_handler(CommandHandler("skip", handlers.cmd_skip))

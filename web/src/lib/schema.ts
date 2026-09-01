@@ -36,6 +36,8 @@ export const preferences = pgTable("preferences", {
   minutesPerDay: integer("minutes_per_day").notNull(),
   wakeTime: time("wake_time").notNull(),
   sleepTime: time("sleep_time").notNull(),
+  quietStart: time("quiet_start"), // janela de silêncio (opcional) — bot não agenda nada dentro dela
+  quietEnd: time("quiet_end"),
   coachTone: text("coach_tone").notNull(),
   coachNote: text("coach_note").notNull(),
   enabledFunctions: jsonb("enabled_functions").notNull(),
@@ -114,6 +116,7 @@ export const botState = pgTable("bot_state", {
   userId: uuid("user_id").primaryKey(),
   remindersDirty: boolean("reminders_dirty").notNull(),
   pending: jsonb("pending"),
+  history: jsonb("history"), // memória de conversa compartilhada bot <-> painel
 });
 
 // Mensagens que o web quer que o bot mande no Telegram (bot/main.py::_outbox_tick).

@@ -19,7 +19,7 @@ const CHAIN: Provider[] = [
   },
 ].filter((p) => p.key);
 
-type Msg = { role: "system" | "user"; content: string };
+type Msg = { role: "system" | "user" | "assistant"; content: string };
 type Meta = { userId?: string; tag?: string };
 
 async function record(row: {
@@ -121,4 +121,18 @@ export async function groqJson<T>(
     meta,
   );
   return parseJson(raw) as T;
+}
+
+/** Chat livre (conversa no painel) — mesma cadeia de provedores + telemetria. */
+export async function coachChat(
+  system: string,
+  turns: { role: "user" | "assistant"; content: string }[],
+  maxTokens = 500,
+  meta: Meta = {},
+): Promise<string> {
+  return chat(
+    [{ role: "system", content: system }, ...(turns as Msg[])],
+    maxTokens,
+    meta,
+  );
 }

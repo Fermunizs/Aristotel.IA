@@ -41,6 +41,14 @@ def _reminder_time(rem: dict) -> time | None:
     return None
 
 
+def _in_quiet(t: time, start: time | None, end: time | None) -> bool:
+    """t cai na janela de silêncio [start, end)? (a janela pode cruzar a meia-noite)."""
+    if not start or not end or start == end:
+        return False
+    tm, sm, em = t.hour * 60 + t.minute, start.hour * 60 + start.minute, end.hour * 60 + end.minute
+    return sm <= tm < em if sm < em else (tm >= sm or tm < em)
+
+
 async def schedule_user(app: Application, user) -> None:
     """(Re)agenda os lembretes do usuário + os jobs semanais fixos."""
     unschedule_user(app, user["id"])
@@ -49,6 +57,8 @@ async def schedule_user(app: Application, user) -> None:
 
     tz = user_tz(user)
     off = _jitter(user["id"])
+    prefs = await db.get_prefs(user["id"])
+    q_start, q_end = prefs.get("quiet_start"), prefs.get("quiet_end")  # janela de silêncio (opt-in no painel)
     reminders = await db.get_reminders(user["id"])
     n = 0
     for rem in reminders:
@@ -59,6 +69,8 @@ async def schedule_user(app: Application, user) -> None:
         if not fn or not t:
             continue
         t = _shift(t, off)  # espalha o pico
+        if _in_quiet(t, q_start, q_end):
+            continue  # dentro do horário de silêncio da pessoa — não agenda
         days = tuple(sorted(int(d) for d in rem["days"]))
         app.job_queue.run_daily(
             fn,

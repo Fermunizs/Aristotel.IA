@@ -25,6 +25,8 @@ const LABEL: Record<Phase, string> = {
   long: "Pausa longa",
 };
 
+const SKEY = "arist_pomodoro";
+
 export function TomatoTimer({ readOnly }: { readOnly?: boolean }) {
   const router = useRouter();
   const [focusMin, setFocusMin] = useState(25);
@@ -34,6 +36,48 @@ export function TomatoTimer({ readOnly }: { readOnly?: boolean }) {
   const [rounds, setRounds] = useState(0); // blocos de foco concluídos nesta sessão
   const tick = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioRef = useRef<AudioContext | null>(null);
+  const hydrated = useRef(false);
+
+  // retoma um foco em andamento depois de um refresh (não perde o timer)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(SKEY);
+      if (raw) {
+        const s = JSON.parse(raw) as {
+          focusMin: number; phase: Phase; rounds: number; endsAt?: number; left?: number; running: boolean;
+        };
+        if (s.phase && s.phase !== "idle") {
+          setFocusMin(s.focusMin);
+          setRounds(s.rounds);
+          setPhase(s.phase);
+          const remaining = s.running && s.endsAt ? Math.round((s.endsAt - Date.now()) / 1000) : (s.left ?? 0);
+          setLeft(Math.max(0, remaining));
+          setRunning(s.running && remaining > 0);
+        }
+      }
+    } catch {
+      /* storage bloqueado — segue sem retomar */
+    }
+    hydrated.current = true;
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated.current) return;
+    try {
+      if (phase === "idle") localStorage.removeItem(SKEY);
+      else
+        localStorage.setItem(
+          SKEY,
+          JSON.stringify({
+            focusMin, phase, rounds, running,
+            endsAt: running ? Date.now() + left * 1000 : undefined,
+            left,
+          }),
+        );
+    } catch {
+      /* ok */
+    }
+  }, [phase, running, left, focusMin, rounds]);
 
   const { short, long } = breaksFor(focusMin);
   const phaseTotal =

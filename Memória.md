@@ -504,3 +504,39 @@ Não era a trilha (a trilha da Savage estava certinha — "Princípio da Recipro
 **Deploy:** bot (migration 0011) + painel. `py_compile`, `tsc --noEmit`, `next build` OK. Testado em produção (página `/trilha` da Fernanda renderizando a árvore real).
 
 **Pergunta em aberto pra Fernanda:** quer que eu mande uma mensagem pra Savage explicando/pedindo desculpa pelo desvio de assunto? Não fiz isso sem perguntar — é mensagem pra um usuário real dela.
+
+## 2026-09-01 (continuação) — conversar no painel + /pausar /voltar + horário de silêncio + pomodoro persistente
+
+Fechei o lote que estava pela metade no working tree (F06 e F09 do Raio-X + 2 melhorias soltas).
+
+### 1. Aba "Conversar" no painel (F09 — quem não tem Telegram)
+Conversa livre com a treinadora direto no painel, **mesma memória** do bot (`bot_state.history`, compartilhada nos dois sentidos).
+- `web/src/app/(app)/conversar/page.tsx` — carrega o histórico e renderiza o chat + aviso de Telegram.
+- `web/src/components/ChatPanel.tsx` — client, bolhas, "escrevendo…", Enter envia.
+- `web/src/components/TelegramNotice.tsx` — explica que notificação push é só via Telegram + `/start`; sem Telegram, usa esta aba.
+- `web/src/app/api/chat/route.ts` — POST: mesmo teto de **40 msg/dia** do bot (conta `events kind='msg:chat'`, agora compartilhado bot+painel), persona idêntica, tópico do dia no system, grava user+assistant no histórico com o **mesmo SQL de append atômico com corte no cap** do `bot/db.py::push_history` (reescrito nesta leva pra ser 1 query só — o painel também escreve lá).
+- `web/src/lib/persona.ts` — espelho de `bot/coach.py::persona()` (identidade/objetivo/tom/pedagogia/blindagem de objetivo + overrides de `app_settings`). Comentário no topo: MANTER EM SINCRONIA.
+- `web/src/lib/coach-llm.ts` — `coachChat()` (cadeia Groq→Gemini + telemetria `llm_usage`, tag `chat-painel`); tipo `Msg` agora aceita `assistant`.
+- `web/src/components/Sidebar.tsx` — item "Conversar" (entre Foco e Lembretes).
+- **Bug que achei e corrigi ao revisar:** o route mandava só o histórico salvo pro LLM e **não anexava a mensagem atual** — na 1ª msg o modelo não recebia pergunta nenhuma. Agora monta `[...history, {user: texto}]` antes de chamar.
+
+### 2. `/pausar` e `/voltar` no bot (F06 — pausar sem culpa)
+- `bot/handlers.py::cmd_pausar` / `cmd_voltar`: `status` vai pra `paused`/`active` e re-agenda (`schedule_user` já tira todos os jobs quando `status != active`).
+- Streak **não quebra** (o `bump_streak` só incrementa, nunca reseta por dia perdido — confirmado), trilha congela.
+- `bot/main.py`: handlers registrados. `bot/onboarding.py`: `/pausar` no rodapé de comandos. `CLAUDE.md` §4 atualizado.
+
+### 3. Horário de silêncio (F06 — quiet hours)
+- `bot/scheduling.py::_in_quiet()` — testa se o horário (já com jitter) cai na janela `[quiet_start, quiet_end)`, aceita janela que cruza a meia-noite. Lembrete dentro da janela **não é agendado**. Colunas `preferences.quiet_start/quiet_end` já existiam (migration 0001) — **sem migration nova**.
+- Tirei o fallback pra `sleep_time/wake_time` que eu tinha posto: silêncio agora é **opt-in explícito** no painel (senão mudava o comportamento de quem já usa, sem UI).
+- UI: `web/src/components/QuietHours.tsx` (toggle + 2 inputs de hora) na página **Lembretes**, seção "Silêncio". `web/src/app/api/prefs/route.ts` aceita `quietStart/quietEnd` (valida `HH:MM`, os dois juntos ou os dois nulos) e marca `reminders_dirty` → o `_resync_tick` (60s) re-agenda.
+- `web/src/lib/schema.ts` — `quietStart/quietEnd` mapeados em `preferences`.
+
+### 4. Pomodoro sobrevive a refresh
+- `web/src/components/TomatoTimer.tsx` — salva fase/rounds/`endsAt` em `localStorage` (`arist_pomodoro`); ao montar, retoma o tempo restante real (ou zera se acabou). `try/catch` em tudo (storage bloqueado = segue sem retomar).
+
+### Verificação
+- `py_compile bot/*.py` OK; `build_app()` OK (13 handlers); `_in_quiet` testado com 7 casos (meia-noite, sem janela, janela degenerada).
+- `web`: `tsc --noEmit` limpo, `next build` OK (rotas `/conversar`, `/api/chat`, `/api/prefs`, `/lembretes` compiladas). ESLint não está configurado no projeto (nunca esteve) — validação é tsc+build, como nas sessões anteriores.
+- **Ainda não fiz deploy** nem testei chamada real de LLM da aba Conversar em produção — aguardando ok da Fernanda pra subir bot + painel.
+
+**Nota pra sincronia:** `bot/coach.py::persona()` e `web/src/lib/persona.ts` são cópias manuais. Mudou uma → mudar a outra.

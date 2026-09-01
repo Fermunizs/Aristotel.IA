@@ -100,6 +100,8 @@ AristotelIA/
 |--------------|------|
 | `/start`     | Registra o `chat_id` e manda boas-vindas. **Precisa ser rodado uma vez** para os agendamentos funcionarem. |
 | `/recomecar` | Refaz o onboarding (4 perguntas) e gera uma trilha nova. Pede `sim` pra confirmar. Mantém streak, evolução e conteúdo. Também acionável pelo painel (Ajustes → Trilha → "Recomeçar trilha"). |
+| `/pausar`    | Pausa **todos** os lembretes sem quebrar o streak (`status='paused'`, tira os jobs do JobQueue). Trilha e streak ficam congelados. |
+| `/voltar`    | Sai da pausa (`status='active'`, re-agenda tudo). |
 | `/hoje`      | Dispara o guia do dia sob demanda. |
 | `/jasei`     | Marca o tópico atual como dominado e pula para o próximo. |
 | `/skip`      | Pula para o próximo dia sem marcar como dominado. |

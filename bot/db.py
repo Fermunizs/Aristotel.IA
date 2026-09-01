@@ -268,12 +268,18 @@ async def clear_history(user_id) -> None:
 
 
 async def push_history(user_id, role: str, content: str) -> None:
-    hist = await get_history(user_id)
-    hist.append({"role": role, "content": content[:1500]})
-    hist = hist[-_HISTORY_MAX:]
+    """Append atômico + corte no cap, numa query só (o painel também escreve aqui)."""
+    msg = json.dumps([{"role": role, "content": content[:1500]}])
     async with pool().acquire() as con:
         await con.execute(
-            "UPDATE bot_state SET history = $2 WHERE user_id = $1", user_id, json.dumps(hist)
+            f"""UPDATE bot_state SET history = (
+                  SELECT coalesce(jsonb_agg(e), '[]'::jsonb) FROM (
+                    SELECT e FROM jsonb_array_elements(history || $2::jsonb) e
+                    OFFSET greatest(0, jsonb_array_length(history || $2::jsonb) - {_HISTORY_MAX})
+                  ) s
+                )
+               WHERE user_id = $1""",
+            user_id, msg,
         )
 
 

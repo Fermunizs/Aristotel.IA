@@ -121,5 +121,5 @@ async def _activate(context: ContextTypes.DEFAULT_TYPE, user, plan: dict) -> Non
         f"Começa hoje: {d1['topic']}\n_{d1.get('goal', '')}_\n\n"
         "Todo dia eu te mando: motivação (06h), o que estudar (08h), pílula (09h), "
         "quiz (10h30), insight (15h), desafio (16h) e o fechamento (20h).\n\n"
-        "Comandos: /hoje /jasei /plano /status /foco /painel /recomecar",
+        "Comandos: /hoje /jasei /plano /status /foco /painel /pausar /recomecar",
     )

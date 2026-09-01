@@ -63,6 +63,30 @@ async def _recomecar_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE,
     await onboarding.start(update, context, user)
 
 
+async def cmd_pausar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Pausa TODOS os lembretes sem quebrar o streak. /voltar retoma."""
+    user = await _me(update)
+    if user["status"] != "active":
+        return await _reply(update, "Nada rodando pra pausar. /start monta sua trilha.")
+    await db.set_status(user["id"], "paused")
+    from .scheduling import schedule_user
+    await schedule_user(context.application, await db.get_user(user["id"]))
+    await _reply(update, "⏸️ Pausei tudo. Seu streak e sua trilha ficam parados esperando. "
+                         "Quando quiser voltar, manda /voltar. Sem culpa.")
+
+
+async def cmd_voltar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user = await _me(update)
+    if user["status"] == "onboarding":
+        return await _reply(update, "Você ainda não terminou o onboarding. Manda /start.")
+    if user["status"] == "active":
+        return await _reply(update, "Já tá tudo rodando. /hoje pra ver o de hoje.")
+    await db.set_status(user["id"], "active")
+    from .scheduling import schedule_user
+    await schedule_user(context.application, await db.get_user(user["id"]))
+    await _reply(update, "▶️ Voltamos. Os lembretes retomam amanhã no horário. Bora de onde parou.")
+
+
 async def cmd_hoje(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     from .jobs import daily_learning_guide
     user = await _me(update)

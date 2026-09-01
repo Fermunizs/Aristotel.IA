@@ -1,7 +1,11 @@
+import { eq } from "drizzle-orm";
 import { getSession } from "@/lib/session";
 import { getReminders } from "@/lib/reminders";
+import { db } from "@/lib/db";
+import { preferences } from "@/lib/schema";
 import { RemindersEditor } from "@/components/RemindersEditor";
 import { PushToggle } from "@/components/PushToggle";
+import { QuietHours } from "@/components/QuietHours";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +14,10 @@ export default async function Lembretes() {
   const { viewing, account } = (await getSession())!;
   const readOnly = account.id !== viewing.id;
   const list = await getReminders(viewing.id);
+  const [pref] = await db
+    .select({ quietStart: preferences.quietStart, quietEnd: preferences.quietEnd })
+    .from(preferences)
+    .where(eq(preferences.userId, viewing.id));
 
   return (
     <div className="space-y-6">
@@ -31,6 +39,15 @@ export default async function Lembretes() {
           <PushToggle />
         </div>
       )}
+
+      <div>
+        <p className="label mb-2">Silêncio</p>
+        <QuietHours
+          start={pref?.quietStart ?? null}
+          end={pref?.quietEnd ?? null}
+          readOnly={readOnly}
+        />
+      </div>
 
       <div>
         <p className="label mb-2">Seus lembretes</p>
