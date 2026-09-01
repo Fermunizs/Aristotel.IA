@@ -356,3 +356,19 @@ Fernanda: "melhore o pomodoro para a pessoa escolher os minutos de foco e ele j�
 - `.gitignore`: add `web/*.tsbuildinfo`.
 
 **Pendência aberta:** Fernanda relatou "ainda não consigo atualizar a trilha". Banco de produção mostra plano dela ainda ativo (Java backend, sem123/dia3), `pending` NULL, `outbox` vazia — ou seja o reset (Telegram ou painel) não chegou a rodar. Endpoint `/api/trilha/reset` responde 401 sem sessão (ok). Falta ela dizer exatamente o que tenta e o que acontece.
+
+## 2026-09-01 (continuação) — pedagogia da bot + trilha antiga/nova
+
+Fernanda: "o ensino dela n tá legal, está jogando um monte de informação em cima, n da para aprender assim" + mandou um modelo de conversa que funcionou (quiz de 1 pergunta → resposta → explicação de 2-3 linhas → pergunta de reforço → fecho curto ligando ao uso real). E "acho q ela tá confundindo a trilha antiga com a nova".
+
+**Pedagogia (micro-passos):**
+- `bot/coach.py`: nova chave `pedagogia` nos DEFAULTS, entra na `persona()` de TODA função. Regra: um conceito por vez; pergunta antes de explicar; explicação 2-4 linhas / 1 bloco de código; reforço = 1 pergunta de variação e espera; fecho 1 linha + próximo passo; erro = só a linha que muda. Proibido lista numerada multi-passo, vários blocos de código, "escreva 2 exemplos", teoria.
+- `bot/prompts.py`: `LEARNING_GUIDE` agora é "Hoje: X / por que importa / Começa por: <1 ação>" (máx 4 linhas, só o 1º passo). `MICRO_LEARNING` = 1 ideia + 1 código curto + 1 pergunta. `INSIGHT` máx 4 linhas. `CHALLENGE` 1 desafio, 1 saída. `QUIZ` virou 2 rodadas (campos `reforco`, `reforco_resposta`, `reforco_explicacao`).
+- `bot/jobs.py`: max_tokens caíram (guia 300→170, micro 450→280, insight 350→260). `micro_learning` seta `pending={type:"micro_q"}`. `learning_check` guarda os campos de reforço no pending.
+- `bot/handlers.py`: `_quiz` encadeia rodada 2 (`quiz2`) se tiver `reforco`; `_quiz2` e `_micro_q` (novos) reagem à resposta livre em ≤3 linhas via LLM. Roteamento novo em `on_text`.
+
+**Trilha antiga × nova:** a bleed vinha de (a) `bot_state.history` (14 msgs da conversa antiga) e (b) o quiz lendo `events` do mês todo. Corrigido:
+- `bot/db.py`: `clear_history(user_id)`. Chamado em `onboarding._finish` logo após `create_plan` (cobre /recomecar e reset pelo painel).
+- `bot/jobs.py::learning_check`: `events_since` agora usa `max(início do mês, data de criação do plano)` — não mistura tópicos de trilha anterior. `get_plan` já traz `created_at`.
+
+`Design.md` PARTE 1 ganhou seção "Como ela ensina". `py_compile` + smoke de `persona()`/prompts OK. Falta deploy do bot.

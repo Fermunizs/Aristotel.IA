@@ -68,7 +68,7 @@ async def daily_learning_guide(context: ContextTypes.DEFAULT_TYPE) -> None:
         return
     day = now_for(user).date()
     texto = await ask(prompts.persona(user["name"], plan["goal"], user["coach_tone"], user["coach_note"]) + "\n\n" + prompts.LEARNING_GUIDE + _note(context),
-                      prompts.learning_context(plan), temperature=0.7, max_tokens=300)
+                      prompts.learning_context(plan), temperature=0.7, max_tokens=170)
     await _deliver(context, user, chat, "O que fazer hoje", f"🧭 *Guia do dia*\n\n{texto}")
     topic = prompts.today_topic(plan)
     if topic:
@@ -86,8 +86,14 @@ async def micro_learning(context: ContextTypes.DEFAULT_TYPE) -> None:
     if not plan:
         return
     texto = await ask(prompts.persona(user["name"], plan["goal"], user["coach_tone"], user["coach_note"]) + "\n\n" + prompts.MICRO_LEARNING + _note(context),
-                      prompts.learning_context(plan), temperature=0.7, max_tokens=450)
+                      prompts.learning_context(plan), temperature=0.7, max_tokens=280)
     await _deliver(context, user, chat, "Pílula de conteúdo", f"📚 *Conteúdo rápido*\n\n{texto}")
+    topic = prompts.today_topic(plan)
+    await db.set_pending(user["id"], {
+        "type": "micro_q",
+        "topico": (topic or {}).get("topic", plan["goal"]),
+        "pergunta": texto.split("🎯")[-1].strip()[:300],
+    })
     await db.log_event(user["id"], "msg:micro", now_for(user).date())
 
 
@@ -98,7 +104,12 @@ async def learning_check(context: ContextTypes.DEFAULT_TYPE) -> None:
     plan = await db.get_plan(user["id"])
     if not plan:
         return
-    events = await db.events_since(user["id"], now_for(user).date().replace(day=1))
+    # só tópicos desta trilha (evita misturar com uma trilha antiga após /recomecar)
+    since = now_for(user).date().replace(day=1)
+    made = plan.get("created_at")
+    if made is not None:
+        since = max(since, made.date() if hasattr(made, "date") else since)
+    events = await db.events_since(user["id"], since)
     tops = prompts.recent_topics(plan, events)
     quiz = await ask_json(prompts.persona(user["name"], plan["goal"], user["coach_tone"], user["coach_note"]) + "\n\n" + prompts.QUIZ + _note(context),
                           f"Tópicos recentes: {tops}", max_tokens=1600)
@@ -117,6 +128,9 @@ async def learning_check(context: ContextTypes.DEFAULT_TYPE) -> None:
         "correta": str(quiz.get("correta", "")).strip().upper()[:1],
         "topico": quiz.get("topico", ""),
         "explicacao": quiz.get("explicacao", ""),
+        "reforco": (quiz.get("reforco") or "").strip()[:300],
+        "reforco_resposta": (quiz.get("reforco_resposta") or "").strip()[:200],
+        "reforco_explicacao": (quiz.get("reforco_explicacao") or "").strip()[:300],
     })
 
 
@@ -127,7 +141,7 @@ async def daily_insight(context: ContextTypes.DEFAULT_TYPE) -> None:
     plan = await db.get_plan(user["id"])
     goal = plan["goal"] if plan else None
     texto = await ask(prompts.persona(user["name"], goal, user["coach_tone"], user["coach_note"]) + "\n\n" + prompts.INSIGHT + _note(context),
-                      "Gere o insight de hoje.", temperature=0.9, max_tokens=350)
+                      "Gere o insight de hoje.", temperature=0.9, max_tokens=260)
     await _deliver(context, user, chat, "Insight", f"🧠 *Insight*\n\n{texto}")
     await db.log_event(user["id"], "msg:insight", now_for(user).date())
 

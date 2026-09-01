@@ -179,6 +179,10 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     if ptype == "quiz":
         await _quiz(update, user, pending, text)
+    elif ptype == "quiz2":
+        await _quiz2(update, user, pending, text)
+    elif ptype == "micro_q":
+        await _micro_q(update, user, pending, text)
     elif ptype in ("challenge", "challenge_done"):
         await _challenge(update, user, pending, text)
     elif ptype == "review":
@@ -209,9 +213,57 @@ async def _quiz(update: Update, user, pending: dict, text: str) -> None:
     day = now_for(user).date()
     await db.log_event(user["id"], "quiz", day,
                        {"topico": pending.get("topico", ""), "resultado": "acerto" if acertou else "erro"})
-    await db.set_pending(user["id"], None)
     exp = pending.get("explicacao", "")
-    await _reply(update, (f"✅ Isso. {exp}" if acertou else f"❌ Era *{pending.get('correta')}*. {exp}"))
+    head = f"✅ Isso. {exp}" if acertou else f"❌ Era *{pending.get('correta')}*. {exp}"
+
+    reforco = (pending.get("reforco") or "").strip()
+    if reforco:
+        await db.set_pending(user["id"], {
+            "type": "quiz2",
+            "topico": pending.get("topico", ""),
+            "pergunta": reforco,
+            "resposta": pending.get("reforco_resposta", ""),
+            "explicacao": pending.get("reforco_explicacao", ""),
+        })
+        await _reply(update, f"{head}\n\nAgora reforça: {reforco}\n_Pensa aí, sem rodar._ 👀")
+    else:
+        await db.set_pending(user["id"], None)
+        await _reply(update, head)
+
+
+async def _quiz2(update: Update, user, pending: dict, text: str) -> None:
+    plan = await db.get_plan(user["id"])
+    goal = plan["goal"] if plan else None
+    resp = await ask(
+        prompts.persona(user["name"], goal, user["coach_tone"], user["coach_note"])
+        + f"\n\nPergunta de reforço: {pending.get('pergunta', '')}\n"
+        f"Resposta certa: {pending.get('resposta', '')}\n"
+        f"Motivo: {pending.get('explicacao', '')}\n\n"
+        "A pessoa respondeu abaixo. Em no máximo 3 linhas: se acertou, confirma e dá 1 linha ligando "
+        "ao uso real; se errou, corrige gentil apontando só o que faltou. "
+        "Fecha dizendo que o próximo desafio prático é às 16h.",
+        text, max_tokens=220,
+    )
+    await db.set_pending(user["id"], None)
+    await db.log_event(user["id"], "quiz_reforco", now_for(user).date(),
+                       {"topico": pending.get("topico", "")})
+    await db.push_history(user["id"], "assistant", resp)
+    await _reply(update, resp)
+
+
+async def _micro_q(update: Update, user, pending: dict, text: str) -> None:
+    plan = await db.get_plan(user["id"])
+    goal = plan["goal"] if plan else None
+    resp = await ask(
+        prompts.persona(user["name"], goal, user["coach_tone"], user["coach_note"])
+        + f"\n\nVocê perguntou sobre '{pending.get('topico', '')}': {pending.get('pergunta', '')}\n\n"
+        "A pessoa respondeu abaixo. Em no máximo 3 linhas: diz se está certo, corrige só o que estiver "
+        "errado (sem reescrever tudo) e, se fizer sentido, faz UMA pergunta de reforço curta.",
+        text, max_tokens=220,
+    )
+    await db.set_pending(user["id"], None)
+    await db.push_history(user["id"], "assistant", resp)
+    await _reply(update, resp)
 
 
 _DONE_WORDS = ("terminei", "terminado", "consegui", "feito", "pronto", "acabei", "fiz",

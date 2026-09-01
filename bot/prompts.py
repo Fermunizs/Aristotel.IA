@@ -14,40 +14,49 @@ MOTIVATION = (
 )
 
 LEARNING_GUIDE = (
-    "Diga EXATAMENTE o que a pessoa deve aprender hoje, com base no tópico e no objetivo fornecidos. "
-    "Formato: 'Hoje: <tópico específico>.' seguido de 1-2 ações concretas "
-    "(ex: 'leia uma explicação curta e escreva um exemplo de cada'). "
-    "Máximo 3 linhas. Nada de 'estude X' genérico."
+    "Diga o tópico de hoje e a PRIMEIRA coisa a fazer — só a primeira, um passo de 5 a 10 minutos. "
+    "Formato exato:\n"
+    "'Hoje: <tópico específico>.'\n"
+    "<1 frase de por que isso importa pro objetivo dela>\n"
+    "'Começa por: <1 ação concreta e pequena>.'\n"
+    "Máximo 4 linhas. PROIBIDO: lista numerada, mais de 1 bloco de código, "
+    "'depois faça X e Y', 'escreva N exemplos'. Só o primeiro passo."
 )
 
 MICRO_LEARNING = (
-    "Faça uma pílula de aprendizado de 5-10 minutos sobre o tópico fornecido. "
-    "Explique o conceito central em 3-5 linhas, com um mini exemplo de código se fizer sentido. "
-    "Termine com uma linha: '🎯 Pergunta para responder: <pergunta objetiva>'. "
-    "Pode sugerir 1 fonte curta (MDN, doc oficial). Sem textão."
+    "Explique UMA ideia do tópico de hoje — a mais central — em até 4 linhas, "
+    "com no máximo 1 exemplo de código curto (2-4 linhas). "
+    "Termine com UMA pergunta que obrigue a pessoa a pensar (prever um resultado, comparar dois casos) "
+    "— não decoreba. Formato da última linha: '🎯 <pergunta>'. "
+    "PROIBIDO: teoria longa, vários exemplos, lista de tópicos, link/fonte."
 )
 
 QUIZ = (
-    "Crie um micro-quiz de retenção sobre UM dos tópicos recentes fornecidos. "
-    "Deve ter enunciado curto (com um trecho de código quando ajudar) e 3 alternativas. "
+    "Crie um micro-quiz de retenção sobre UM dos tópicos recentes fornecidos, no estilo de duas rodadas. "
+    "Rodada 1: enunciado curto (com trecho de código quando ajudar) e 3 alternativas. "
+    "Rodada 2 (reforço): uma variação PEQUENA do mesmo conceito, resposta livre e curta, pra ela pensar sem rodar. "
     "Retorne um JSON com as chaves: "
     '"pergunta" (string, pode ter \\n e código), '
     '"alternativas" (objeto com "A","B","C"), '
     '"correta" ("A"|"B"|"C"), '
     '"topico" (string curta), '
-    '"explicacao" (1 frase, por que a correta é correta).'
+    '"explicacao" (1-2 frases, por que a correta é correta), '
+    '"reforco" (string, a pergunta da rodada 2 — curta, uma variação), '
+    '"reforco_resposta" (string curta, a resposta esperada da rodada 2), '
+    '"reforco_explicacao" (1 frase, o porquê da resposta da rodada 2).'
 )
 
 INSIGHT = (
-    "Dê um insight FORA da sintaxe, relacionado à área de estudo da pessoa: arquitetura, "
-    "carreira, produto, mercado, boas práticas, mentalidade. 3-5 linhas. "
-    "Termine com 1 pergunta que desenvolva a visão dela sobre a área."
+    "Dê um insight FORA da sintaxe, ligado à área da pessoa: arquitetura, carreira, produto, "
+    "mercado, boas práticas, mentalidade. No máximo 4 linhas, um pensamento só. "
+    "Termine com 1 pergunta pra ela pensar (não precisa responder agora). Sem lista, sem textão."
 )
 
 CHALLENGE = (
-    "Proponha um desafio prático de no máximo 10 minutos, pequeno e bem definido, "
-    "relacionado ao tópico fornecido. Enunciado em 2-4 linhas. "
-    "Inclua a frase 'Não pesquise antes de tentar.' NÃO dê a solução."
+    "Proponha UM desafio prático de no máximo 10 minutos, pequeno e bem definido, "
+    "ligado ao tópico fornecido. Enunciado em 2-4 linhas: o que fazer e qual é o resultado esperado. "
+    "No máximo 1 bloco de código curto (só os dados de entrada, se precisar). "
+    "Inclua a frase 'Não pesquise antes de tentar.' NÃO dê a solução nem dicas."
 )
 
 REVIEW_FORMAT = (

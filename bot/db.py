@@ -210,6 +210,12 @@ async def get_history(user_id) -> list[dict]:
     return _j(r) or []
 
 
+async def clear_history(user_id) -> None:
+    """Zera a memória de conversa — usado ao gerar uma trilha nova (/recomecar)."""
+    async with pool().acquire() as con:
+        await con.execute("UPDATE bot_state SET history = '[]'::jsonb WHERE user_id = $1", user_id)
+
+
 async def push_history(user_id, role: str, content: str) -> None:
     hist = await get_history(user_id)
     hist.append({"role": role, "content": content[:1500]})

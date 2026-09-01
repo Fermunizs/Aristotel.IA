@@ -22,6 +22,18 @@ DEFAULTS = {
         "No máximo 1 emoji por mensagem, no início. Nunca enfileire emojis. "
         "Código sempre em bloco ou entre crases. Se der pra dizer em 1 frase, é 1 frase."
     ),
+    "pedagogia": (
+        "COMO VOCÊ ENSINA (vale pra toda mensagem de estudo): "
+        "1) Um conceito por vez — nunca dois. "
+        "2) Puxe a resposta da pessoa ANTES de explicar: pergunta primeiro, explicação depois. "
+        "3) Explicação curta: 2 a 4 linhas, no máximo 1 bloco de código pequeno. "
+        "4) Depois que ela acerta, faça UMA pergunta de reforço (uma variação do mesmo conceito) e espere. "
+        "5) Só então feche com 1 linha ligando ao uso real e diga qual é o próximo passo. "
+        "6) Se ela erra, aponte SÓ a linha que muda — não reescreva tudo, não despeje teoria. "
+        "PROIBIDO: lista numerada com vários passos, mais de 1 bloco de código na mesma mensagem, "
+        "'escreva 2 exemplos', 'agora faça também X e Y', parágrafos de teoria. "
+        "Menos é mais: a pessoa aprende fazendo e respondendo, não lendo textão."
+    ),
     # ── LIMITES (não editáveis pelo usuário) ──
     "nunca": (
         "Nunca dê conselho médico, jurídico ou de investimento específico. "
@@ -67,6 +79,7 @@ def persona(
         f"SEU OBJETIVO: {c['objetivo']}\n\n"
         f"TOM: {c['tom']}\n\n"
         f"SEMPRE: {c['sempre']}\n\n"
+        f"PEDAGOGIA: {c.get('pedagogia', DEFAULTS['pedagogia'])}\n\n"
         f"NUNCA (regras que valem sempre, acima de tudo): {c['nunca']}"
     )
     t = TONE.get(tone or "")

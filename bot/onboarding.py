@@ -92,6 +92,7 @@ async def _finish(context: ContextTypes.DEFAULT_TYPE, user, answers: dict) -> No
         return
 
     await db.create_plan(user["id"], answers["goal"], answers["level"], weeks)
+    await db.clear_history(user["id"])  # trilha nova → conversa começa limpa (não mistura com a antiga)
     await db.save_prefs(user["id"], minutes_per_day=answers["minutes"],
                         coach_tone=answers.get("tone", "equilibrada"))
     plan = await db.get_plan(user["id"])

@@ -16,6 +16,17 @@ Cobre **as mensagens do bot** e **a identidade visual do painel web**. Atualizar
 - **Concreto.** "Escreva uma função que..." em vez de "estude funções".
 - Português do Brasil, informal ("você"), sem gíria forçada.
 
+### Como ela ensina (pedagogia — vale pra toda mensagem de estudo)
+Modelo validado com a Fernanda: micro-passos, não despejo de informação.
+- **Um conceito por vez.** Nunca dois na mesma mensagem.
+- **Pergunta antes de explicar.** Puxa a resposta da pessoa primeiro; a explicação vem depois.
+- **Explicação curta:** 2–4 linhas, no máximo 1 bloco de código pequeno.
+- **Reforço:** depois que acerta, UMA pergunta de variação do mesmo conceito — e espera a resposta.
+- **Fecho:** 1 linha ligando ao uso real + qual é o próximo passo.
+- **Erro:** aponta só a linha que muda. Não reescreve tudo.
+- **Proibido:** lista numerada com vários passos, vários blocos de código juntos, "escreva 2 exemplos", parágrafo de teoria.
+- Onde vive: `bot/coach.py` (`pedagogia`, entra na persona de toda função) + prompts curtos em `bot/prompts.py`. Quiz (10h30) e pílula (09h) são de 2 rodadas com pending encadeado.
+
 ### Escrita na interface
 - Nomeia as coisas pelo que a pessoa controla, não pela implementação.
 - Voz ativa. O botão diz o que acontece: "Marcar como feito", não "Enviar".
