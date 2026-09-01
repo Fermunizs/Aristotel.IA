@@ -49,12 +49,76 @@ const STEPS = [
 ];
 
 const FAQ = [
-  ["Preciso de cartão?", "Não. O Free é grátis de verdade e o trial do Pro não pede cartão nem cobra no fim."],
+  ["Preciso de cartão?", "Não. O Aprendiz é grátis de verdade e, enquanto a gente valida, os planos pagos ainda nem cobram."],
   ["Não uso Telegram.", "Dá pra usar pelo painel web — trilha, checklist, foco e a conversa com a treinadora. Push no navegador e e-mail estão a caminho."],
   ["E se eu furar um dia?", '"Hoje não" reagenda sem quebrar o streak. Sumir uma semana também não te pune — a trilha congela e espera você voltar.'],
   ["Serve só pra programar?", "O motor é o mesmo pra qualquer coisa que você queira aprender com constância. Hoje o conteúdo é mais forte em tech, que é onde a gente está validando."],
-  ["Quanto vai custar depois?", "O Free continua grátis. O Pro deve ficar em R$19/mês (ou R$149/ano), e quem entra agora trava esse valor. Nada é cobrado sem você escolher."],
-  ["E os meus dados?", "Ficam no nosso banco, não são vendidos. Você pode pedir o export (no Pro) ou a exclusão a qualquer momento."],
+  ["Quanto vai custar depois?", "O Aprendiz continua grátis. Sábio deve ficar em R$39/mês e Mestre em R$79/mês (com desconto no anual). Quem entra agora como fundador trava um preço menor por 12 meses. Nada é cobrado sem você escolher."],
+  ["E os meus dados?", "Ficam no nosso banco, não são vendidos, e a gente nunca apaga seu histórico. Você pode pedir o export (Sábio e Mestre) ou a exclusão a qualquer momento."],
+];
+
+type Plan = {
+  nome: string;
+  tagline: string;
+  preco: string;
+  precoSub: string;
+  destaque?: boolean;
+  badge?: string;
+  itens: string[];
+  cta: string;
+};
+
+const PLANS: Plan[] = [
+  {
+    nome: "Aprendiz",
+    tagline: "Começar a andar todo dia",
+    preco: "R$0",
+    precoSub: "pra sempre",
+    itens: [
+      "O ciclo 1% inteiro, todo dia",
+      "Trilha + checklist com auto-check",
+      "Gráfico e árvore de evolução",
+      "Pomodoro, horário de silêncio, pausar sem culpa",
+      "Conversa com a treinadora — 25 mensagens por dia",
+      "Até 5 lembretes agendados · 1 trilha",
+    ],
+    cta: "Começar no Telegram",
+  },
+  {
+    nome: "Sábio",
+    tagline: "Sua formação virando reputação",
+    preco: "R$39",
+    precoSub: "/mês · ou R$290/ano",
+    destaque: true,
+    badge: "Em breve · fundador R$29",
+    itens: [
+      "Tudo do Aprendiz",
+      "3 ideias de post por semana (LinkedIn, Instagram ou X) com copy pronta",
+      "Até 3 trilhas rodando em paralelo",
+      "Agenda: foco marcado nas suas brechas reais (Google/Outlook)",
+      "Análise semanal profunda + tendência entre semanas",
+      "Export do histórico (CSV / Notion)",
+      "Até 15 lembretes agendados",
+    ],
+    cta: "Quero ser fundador",
+  },
+  {
+    nome: "Mestre",
+    tagline: "Sem limite. Várias frentes. Você vira referência.",
+    preco: "R$79",
+    precoSub: "/mês · ou R$590/ano",
+    badge: "Em breve · fundador R$59",
+    itens: [
+      "Tudo do Sábio",
+      "Conversa ilimitada · até 30 lembretes · até 6 trilhas",
+      "Calendário de conteúdo semanal — carrossel e thread com estrutura pronta, adaptados pras 3 redes",
+      "Boletim mensal de autoridade: seus estudos × seus posts",
+      "Revisão espaçada cruzando todas as trilhas",
+      "Pergunta estratégica de carreira por semana — resposta longa e pensada",
+      "Trilhas-modelo curadas · parceiro de constância · prioridade quando a fila aperta",
+    ],
+    cta: "Quero ser fundador",
+  },
 ];
 
 export default function Home() {
@@ -194,67 +258,38 @@ export default function Home() {
             </p>
           </div>
           <div className="plans">
-            <article className="plan fade">
-              <div className="plan-top">
-                <h3>Free</h3>
-              </div>
-              <div className="price">
-                R$0 <small>pra sempre</small>
-              </div>
-              <ul>
-                <li>O ciclo 1% inteiro, todo dia</li>
-                <li>Trilha + checklist com auto-check</li>
-                <li>Pomodoro e minutos de foco</li>
-                <li>Gráfico e árvore de evolução</li>
-                <li>Horário de silêncio e pausar sem culpa</li>
-                <li>Todos os canais (Telegram hoje; push e e-mail a caminho)</li>
-                <li>Até 5 lembretes no seu ritmo</li>
-              </ul>
-              <a className="btn btn-primary" href={TG}>
-                Começar no Telegram
-              </a>
-            </article>
-            <article className="plan pro fade">
-              <div className="plan-top">
-                <h3>Pro</h3>
-                <span className="badge">Em breve · fundador</span>
-              </div>
-              <div className="price">
-                R$19 <small>/mês · ou R$149/ano</small>
-              </div>
-              <ul>
-                <li>Tudo do Free</li>
-                <li>Agenda: foco marcado nas suas brechas reais (Google/Outlook)</li>
-                <li>Planner de conteúdo semanal com rascunho de copy</li>
-                <li>Análise semanal profunda e comparação entre semanas</li>
-                <li>Export do histórico (CSV / Notion)</li>
-                <li>Até 30 lembretes e limites maiores</li>
-              </ul>
-              <a className="btn btn-ghost" href={TG}>
-                Quero ser fundador
-              </a>
-              <p className="foot">Preço travado pra quem entra na fase de validação.</p>
-            </article>
-            <article className="plan fade">
-              <div className="plan-top">
-                <h3>Trial</h3>
-              </div>
-              <div className="price">
-                14 dias <small>de Pro, sem cartão</small>
-              </div>
-              <ul>
-                <li>Libera tudo do Pro por duas semanas</li>
-                <li>Tempo de ver o card semanal e o gráfico subir</li>
-                <li>No fim vira Free — seu histórico fica inteiro</li>
-                <li>Sem cobrança automática, sem pegadinha</li>
-              </ul>
-              <a className="btn btn-ghost" href={TG}>
-                Testar o Pro
-              </a>
-            </article>
+            {PLANS.map((pl) => (
+              <article className={`plan fade${pl.destaque ? " pro" : ""}`} key={pl.nome}>
+                <div className="plan-top">
+                  <h3>{pl.nome}</h3>
+                  {pl.badge && <span className="badge">{pl.badge}</span>}
+                </div>
+                <p className="foot" style={{ marginTop: "-0.4rem" }}>
+                  {pl.tagline}
+                </p>
+                <div className="price">
+                  {pl.preco} <small>{pl.precoSub}</small>
+                </div>
+                <ul>
+                  {pl.itens.map((it) => (
+                    <li key={it}>{it}</li>
+                  ))}
+                </ul>
+                <a className={`btn ${pl.destaque ? "btn-primary" : "btn-ghost"}`} href={TG}>
+                  {pl.cta}
+                </a>
+              </article>
+            ))}
           </div>
           <p className="trial-note">
-            Preços em avaliação com a primeira turma. <b>O Free continua grátis de verdade.</b>
+            <b>Turma</b> — bootcamp, curso ou mentor que quer a Aristótel.IA como camada de accountability
+            dos alunos, com painel do organizador:{" "}
+            <a href={TG} style={{ color: "var(--clay)" }}>
+              fala com a gente
+            </a>
+            .
+            <br />
+            Preços em avaliação com a primeira turma. <b>O Aprendiz continua grátis de verdade.</b>
           </p>
         </section>
 

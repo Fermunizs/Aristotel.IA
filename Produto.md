@@ -201,11 +201,16 @@ Se der sinal bom em ≥ 3 delas → investir em web + preço + expandir público
 
 **Ordem sugerida da Fase 2:** (1) tela de configuração de lembretes no painel → (2) push PWA como 2º canal → (3) e-mail → (4) Google Calendar. Cada uma é testável sozinha.
 
-## 10. Modelo de negócio (hipóteses — testar, não assumir)
+## 10. Modelo de negócio
 
-- **Freemium:** trilha + 3 mensagens/dia grátis; ciclo completo (7 msgs + painel + analytics + pomodoro) no pago.
-- Faixa provável: **R$19–39/mês** ou **R$150–300/ano**.
-- B2B possível depois: bootcamps e cursos usam a AristotelIA como camada de accountability dos alunos (o superadmin já serve pra isso).
+> Estrutura decidida em 2026-09-01. Detalhe, tabela de limites e racional: **`docs/precos-e-limites.md`** (fonte de verdade).
+
+- **3 planos + B2B:** **Aprendiz** (grátis) · **Sábio** (R$39/mês · R$290/ano) · **Mestre** (R$79/mês · R$590/ano) · **Turma** (B2B, sob consulta).
+- **Grátis generoso:** o ciclo 1% inteiro + gráfico de evolução + 25 msg/dia + 5 lembretes + 1 trilha. Suficiente pra viciar e recomendar. O grátis nunca corta o ciclo básico nem os canais nem o gráfico.
+- **O que os pagos vendem:** conteúdo → rede social (ideias + copy prontas pra LinkedIn/IG/X — o headline), **multi-trilha** (3 no Sábio, 6 no Mestre, modelo de dias-da-semana por trilha), agenda (Google/Outlook), análise semanal profunda, export, limites maiores. Mestre: conversa ilimitada + extras (revisão espaçada, pergunta estratégica, trilhas-modelo, parceiro de constância, boletim de autoridade).
+- **Fundador:** quem entra na validação trava R$29 (Sábio) / R$59 (Mestre) por **12 meses** — transição, não isenção permanente.
+- **Agora:** cobrança **desligada** (modelo de validação). A landing mostra os 3 planos; Sábio/Mestre com selo "em breve · fundador". Ligar cobrança quando ≥ 3 métricas de §8 no verde.
+- **B2B (Turma)** é o lever de expansão de receita (produto de 1 usuário tem LTV com teto) — o superadmin já serve de painel do organizador.
 
 ## 11. Riscos
 
