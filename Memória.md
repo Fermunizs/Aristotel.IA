@@ -336,3 +336,23 @@ Fernanda: "não encontrei o tema escuro" (o dark de ontem só estava no código,
 **Deploy (feito 2026-09-01 ~09:03):**
 - Painel: `bash scripts/deploy-web.sh` — build OK, rota `/api/trilha/reset` no manifesto, `aristotelia-web` active. `/entrar` já serve o script de tema.
 - Bot: `tar czf - --exclude=__pycache__ bot db requirements.txt | ssh … 'tar xzf - -C ~/aristotelia && .venv/bin/pip install -q -r requirements.txt && sudo systemctl restart aristotelia'` — subiu limpo, scheduler + outbox rodando. (CLAUDE.md §6 estava desatualizado — não usar `tar .`, que puxa o `web/` inteiro.)
+
+## 2026-09-01 (continuação) — pomodoro melhorado + commit
+
+Fernanda: "melhore o pomodoro para a pessoa escolher os minutos de foco e ele já calcular as pausas e notificar as pausas por meio de um barulho".
+
+- `web/src/components/TomatoTimer.tsx` reescrito como máquina de estados `idle → focus → break/long → focus …`:
+  - Escolha dos minutos de foco: stepper ± 5 (5–90) + chips 15/25/45/50.
+  - Pausas calculadas: curta ≈ foco/5 (3–10 min), longa ≈ 3× a curta (15–25 min), longa a cada 4 blocos de foco. Mostra "pausa de X min a cada bloco · Y min a cada 4".
+  - **Som na virada de fase** via Web Audio API (osciladores, sem arquivo — CSP-safe, offline): acorde subindo ao fechar bloco de foco, descendo ao voltar. `AudioContext` criado no clique "Começar" (gesto) e reusado. Verificado no browser (`state=running`).
+  - Também dispara `Notification` (se permitida) + `navigator.vibrate` no mobile. Pede permissão de notificação no 1º "Começar".
+  - Fases encadeiam automático; botões "Pausar/Continuar", "pular pausa" (só na pausa) e "Encerrar". Pill de fase (Foco laranja / Pausa verde). Contador "N blocos de foco hoje · N min".
+  - Cada bloco de foco concluído faz `POST /api/focus` (não conta tempo de pausa) + `router.refresh()`.
+- Testado com build standalone local + browser: idle, stepper (+→30, recalcula 6/18), Começar → "Foco" + contagem, Pausar congela e vira "Continuar". Transição de fase é código simples (não deu pra esperar 30 min real), audio confirmado à parte.
+- Deployado (`deploy-web.sh`).
+
+**Commit:** `a7cee21` — juntou o trabalho não commitado das sessões anteriores (trilha detalhada por IA, jasei/skip no painel, coach-llm) + tema claro/escuro + /recomecar. O pomodoro entra num commit à parte.
+- `web/src/components/CoachTonePicker.tsx` ficou **sem commit** (arquivo órfão — ninguém importa; o seletor de tom já vive inline no `AjustesForm`). Apagar ou usar.
+- `.gitignore`: add `web/*.tsbuildinfo`.
+
+**Pendência aberta:** Fernanda relatou "ainda não consigo atualizar a trilha". Banco de produção mostra plano dela ainda ativo (Java backend, sem123/dia3), `pending` NULL, `outbox` vazia — ou seja o reset (Telegram ou painel) não chegou a rodar. Endpoint `/api/trilha/reset` responde 401 sem sessão (ok). Falta ela dizer exatamente o que tenta e o que acontece.
