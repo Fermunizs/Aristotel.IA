@@ -20,8 +20,34 @@ const CHAIN: Provider[] = [
 ].filter((p) => p.key);
 
 type Msg = { role: "system" | "user"; content: string };
+type Meta = { userId?: string; tag?: string };
 
-async function callOne(p: Provider, messages: Msg[], maxTokens: number): Promise<string> {
+async function record(row: {
+  userId?: string; tag?: string; provider: string; model: string | null;
+  prompt: number; completion: number; fallback: boolean; ok: boolean; status: string;
+}) {
+  try {
+    const { db } = await import("./db");
+    const { llmUsage } = await import("./schema");
+    await db.insert(llmUsage).values({
+      userId: row.userId ?? null,
+      source: "web",
+      tag: row.tag ?? null,
+      provider: row.provider,
+      model: row.model,
+      promptTokens: row.prompt,
+      completionTokens: row.completion,
+      fallback: row.fallback,
+      ok: row.ok,
+      status: row.status,
+      createdAt: new Date(),
+    });
+  } catch {
+    /* telemetria nunca quebra a resposta */
+  }
+}
+
+async function callOne(p: Provider, messages: Msg[], maxTokens: number): Promise<{ text: string; usage: { prompt_tokens?: number; completion_tokens?: number } }> {
   const body: Record<string, unknown> = {
     model: p.model,
     messages,
@@ -43,19 +69,30 @@ async function callOne(p: Provider, messages: Msg[], maxTokens: number): Promise
     }
     if (!res.ok) throw new Error(`${p.name} ${res.status}: ${await res.text().catch(() => "")}`);
     const json = await res.json();
-    return (json.choices?.[0]?.message?.content ?? "").trim();
+    return { text: (json.choices?.[0]?.message?.content ?? "").trim(), usage: json.usage ?? {} };
   }
   throw new Error(`${p.name} rate limit persistente`);
 }
 
-async function chat(messages: Msg[], maxTokens: number): Promise<string> {
+async function chat(messages: Msg[], maxTokens: number, meta: Meta): Promise<string> {
   if (!CHAIN.length) throw new Error("nenhum provedor de LLM configurado");
   let last: unknown;
-  for (const p of CHAIN) {
+  for (let i = 0; i < CHAIN.length; i++) {
+    const p = CHAIN[i];
     try {
-      return await callOne(p, messages, maxTokens);
+      const { text, usage } = await callOne(p, messages, maxTokens);
+      await record({
+        ...meta, provider: p.name, model: p.model,
+        prompt: usage.prompt_tokens ?? 0, completion: usage.completion_tokens ?? 0,
+        fallback: i > 0, ok: true, status: "ok",
+      });
+      return text;
     } catch (e) {
       last = e;
+      await record({
+        ...meta, provider: p.name, model: p.model, prompt: 0, completion: 0,
+        fallback: i > 0, ok: false, status: String(e).includes("429") ? "429" : "error",
+      });
     }
   }
   throw new Error(`todos os provedores falharam: ${last}`);
@@ -69,13 +106,19 @@ function parseJson(raw: string): unknown {
   return JSON.parse(raw.slice(start, end + 1));
 }
 
-export async function groqJson<T>(system: string, user: string, maxTokens = 1400): Promise<T> {
+export async function groqJson<T>(
+  system: string,
+  user: string,
+  maxTokens = 1400,
+  meta: Meta = {},
+): Promise<T> {
   const raw = await chat(
     [
       { role: "system", content: system },
       { role: "user", content: user + "\n\nResponda SÓ com JSON válido, sem markdown." },
     ],
     maxTokens,
+    meta,
   );
   return parseJson(raw) as T;
 }

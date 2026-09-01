@@ -79,7 +79,12 @@ export async function getOrMakeDetail(userId: string, week: number, day: number)
   const [pref] = await db.select().from(preferences).where(eq(preferences.userId, userId)).limit(1);
   const minutes = pref?.minutesPerDay ?? 30;
 
-  const raw = await groqJson<unknown>(SYSTEM, prompt(plan.goal, plan.level, w.theme, d, minutes));
+  const raw = await groqJson<unknown>(
+    SYSTEM,
+    prompt(plan.goal, plan.level, w.theme, d, minutes),
+    1400,
+    { userId, tag: "trilha-detalhe" },
+  );
   const detail = normalize(raw, minutes);
   if (!detail.checklist.length) return null;
 

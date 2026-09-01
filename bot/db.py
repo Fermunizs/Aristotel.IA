@@ -473,6 +473,33 @@ async def mark_outbox_sent(outbox_id) -> None:
         await con.execute("UPDATE outbox SET sent_at = now() WHERE id = $1", outbox_id)
 
 
+# ── telemetria de LLM ───────────────────────────────────────────────
+async def record_llm_usage(rows: list[dict]) -> None:
+    if not rows:
+        return
+    async with pool().acquire() as con:
+        await con.executemany(
+            """INSERT INTO llm_usage
+                 (user_id, source, tag, provider, model,
+                  prompt_tokens, completion_tokens, fallback, ok, status)
+               VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10)""",
+            [(
+                r.get("user_id"), r.get("source", "bot"), r.get("tag"), r["provider"], r.get("model"),
+                int(r.get("prompt_tokens", 0)), int(r.get("completion_tokens", 0)),
+                bool(r.get("fallback", False)), bool(r.get("ok", True)), r.get("status"),
+            ) for r in rows],
+        )
+
+
+async def chat_count_today(user_id, day: date) -> int:
+    async with pool().acquire() as con:
+        n = await con.fetchval(
+            "SELECT count(*) FROM events WHERE user_id = $1 AND day = $2 AND kind = 'msg:chat'",
+            user_id, day,
+        )
+    return n or 0
+
+
 # ── faxina (roda 1x/dia) ────────────────────────────────────────────
 async def cleanup_expired() -> str:
     async with pool().acquire() as con:
@@ -480,4 +507,5 @@ async def cleanup_expired() -> str:
         s = await con.execute("DELETE FROM web_sessions WHERE expires_at < now()")
         o = await con.execute("DELETE FROM outbox WHERE sent_at IS NOT NULL AND sent_at < now() - interval '7 days'")
         c = await con.execute("DELETE FROM content_cache WHERE day < current_date - 14")
-    return f"auth_codes[{a}] web_sessions[{s}] outbox[{o}] content_cache[{c}]"
+        u = await con.execute("DELETE FROM llm_usage WHERE created_at < now() - interval '90 days'")
+    return f"auth_codes[{a}] web_sessions[{s}] outbox[{o}] content_cache[{c}] llm_usage[{u}]"

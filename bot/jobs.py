@@ -6,7 +6,7 @@ import re
 
 from telegram.ext import ContextTypes
 
-from . import db, prompts, push
+from . import db, prompts, push, usage
 from .util import ask, ask_json, now_for, send_text
 
 log = logging.getLogger("aristotelia.jobs")
@@ -26,6 +26,8 @@ async def _ctx(context: ContextTypes.DEFAULT_TYPE):
         return None, None
     if user["status"] != "active":  # ex.: refazendo o onboarding (/recomecar) — não dispara lembrete
         return None, None
+    data = (getattr(context, "job", None) and context.job.data) or {}
+    usage.set_context(user["id"], data.get("kind") or "job")
     return user, user["telegram_chat_id"]
 
 

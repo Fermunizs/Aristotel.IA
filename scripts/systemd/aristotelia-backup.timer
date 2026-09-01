@@ -1,0 +1,10 @@
+[Unit]
+Description=Dispara o backup do Postgres 1x/dia
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

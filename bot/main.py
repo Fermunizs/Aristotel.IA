@@ -5,7 +5,7 @@ import logging
 
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
 
-from . import coach, config, db, handlers, scheduling
+from . import coach, config, db, handlers, scheduling, usage
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s", level=logging.INFO
@@ -21,7 +21,17 @@ async def _post_init(app: Application) -> None:
     app.job_queue.run_repeating(_resync_tick, interval=60, first=30, name="resync")
     app.job_queue.run_repeating(_coach_tick, interval=120, first=120, name="coach")
     app.job_queue.run_repeating(_cleanup_tick, interval=86400, first=3600, name="cleanup")
+    app.job_queue.run_repeating(_usage_tick, interval=20, first=25, name="usage")
     log.info("Aristótel.IA no ar. LLM: %s (%s)", config.LLM_PROVIDER, config.LLM_MODEL)
+
+
+async def _usage_tick(context) -> None:
+    rows = usage.drain()
+    if rows:
+        try:
+            await db.record_llm_usage(rows)
+        except Exception:  # noqa: BLE001
+            log.exception("falha ao gravar telemetria de LLM (%d linhas descartadas)", len(rows))
 
 
 async def _coach_tick(context) -> None:

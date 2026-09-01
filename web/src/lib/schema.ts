@@ -147,3 +147,19 @@ export const streaks = pgTable("streaks", {
   best: integer("best").notNull(),
   lastDate: date("last_date"),
 });
+
+// telemetria de consumo de LLM — 1 linha por chamada (bot/usage.py + web/coach-llm.ts)
+export const llmUsage = pgTable("llm_usage", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id"),
+  source: text("source").notNull(),
+  tag: text("tag"),
+  provider: text("provider").notNull(),
+  model: text("model"),
+  promptTokens: integer("prompt_tokens").notNull(),
+  completionTokens: integer("completion_tokens").notNull(),
+  fallback: boolean("fallback").notNull(),
+  ok: boolean("ok").notNull(),
+  status: text("status"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+});

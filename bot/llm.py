@@ -10,7 +10,7 @@ import time
 
 from openai import APIError, APIConnectionError, OpenAI, RateLimitError
 
-from . import config
+from . import config, usage
 
 log = logging.getLogger("aristotelia.llm")
 
@@ -42,7 +42,7 @@ class _Provider:
         self._sem = threading.Semaphore(config.LLM_CONCURRENCY)
         self._cooldown_until = 0.0
 
-    def call(self, messages: list, temperature: float, max_tokens: int) -> str:
+    def call(self, messages: list, temperature: float, max_tokens: int) -> tuple[str, object]:
         kwargs: dict = dict(model=self.model, messages=messages,
                             temperature=temperature, max_tokens=max_tokens)
         if self.name == "groq" and "gpt-oss" in self.model:
@@ -60,7 +60,7 @@ class _Provider:
                     rem = float(h.get("x-ratelimit-remaining-tokens", "999999"))
                     if rem < max_tokens * 1.2:
                         self._cooldown_until = time.time() + _seconds(h.get("x-ratelimit-reset-tokens"))
-                    return (resp.choices[0].message.content or "").strip()
+                    return (resp.choices[0].message.content or "").strip(), getattr(resp, "usage", None)
                 except RateLimitError as e:
                     retry_after = _seconds(getattr(e, "response", None)
                                            and e.response.headers.get("retry-after"))
@@ -110,12 +110,25 @@ def _call(messages: list, temperature: float, max_tokens: int) -> str:
     chain = _chain()
     if not chain:
         raise RuntimeError("nenhum provedor de LLM configurado")
+    ctx = usage.get_context()
     last: Exception | None = None
-    for p in chain:
+    for i, p in enumerate(chain):
         try:
-            return p.call(messages, temperature, max_tokens)
-        except (_ProviderFailed, RateLimitError, APIError, APIConnectionError, OSError) as e:
+            text, u = p.call(messages, temperature, max_tokens)
+            usage.record(
+                provider=p.name, model=p.model,
+                prompt_tokens=int(getattr(u, "prompt_tokens", 0) or 0),
+                completion_tokens=int(getattr(u, "completion_tokens", 0) or 0),
+                fallback=(i > 0), ok=True, status="ok", **ctx,
+            )
+            return text
+        except _ProviderFailed as e:
             last = e
+            usage.record(provider=p.name, model=p.model, fallback=(i > 0), ok=False, status="429", **ctx)
+            log.warning("provedor %s: 429 — próximo da cadeia", p.name)
+        except (RateLimitError, APIError, APIConnectionError, OSError) as e:
+            last = e
+            usage.record(provider=p.name, model=p.model, fallback=(i > 0), ok=False, status="error", **ctx)
             log.warning("provedor %s indisponível (%s) — próximo da cadeia", p.name, type(e).__name__)
     raise RuntimeError(f"todos os provedores falharam: {last}")
 
@@ -140,6 +153,8 @@ def generate(
         return _call(msgs, temperature, max_tokens)
     except Exception:  # noqa: BLE001
         log.exception("Falha em toda a cadeia de LLM — usando fallback local.")
+        usage.record(provider="fallback", model=None, fallback=True, ok=False,
+                     status="fallback", **usage.get_context())
         return random.choice(_FALLBACK)
 
 

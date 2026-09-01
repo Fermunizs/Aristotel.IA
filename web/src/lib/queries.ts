@@ -1,6 +1,6 @@
 import { and, eq, gte, sql, desc } from "drizzle-orm";
 import { db } from "./db";
-import { contentIdeas, events, focusSessions, learningPlans, streaks, tasks, users } from "./schema";
+import { contentIdeas, events, focusSessions, learningPlans, llmUsage, streaks, tasks, users } from "./schema";
 
 const todayISO = () =>
   new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
@@ -125,6 +125,66 @@ export async function evolucaoData(userId: string) {
       foco: t["foco"] ?? 0,
     },
     ideas,
+  };
+}
+
+export async function llmConsumo() {
+  const since7 = sql`now() - interval '7 days'`;
+  const tok = sql<number>`coalesce(sum(prompt_tokens + completion_tokens),0)::int`;
+
+  const [tot] = await db
+    .select({
+      calls: sql<number>`count(*)::int`,
+      tokens: tok,
+      ok: sql<number>`count(*) filter (where ok)::int`,
+      fallbackCalls: sql<number>`count(*) filter (where fallback)::int`,
+      rate429: sql<number>`count(*) filter (where status = '429')::int`,
+      localFallback: sql<number>`count(*) filter (where provider = 'fallback')::int`,
+    })
+    .from(llmUsage)
+    .where(gte(llmUsage.createdAt, since7));
+
+  const byProvider = await db
+    .select({ provider: llmUsage.provider, calls: sql<number>`count(*)::int`, tokens: tok })
+    .from(llmUsage)
+    .where(gte(llmUsage.createdAt, since7))
+    .groupBy(llmUsage.provider)
+    .orderBy(desc(sql`count(*)`));
+
+  const byTag = await db
+    .select({ tag: sql<string>`coalesce(tag,'—')`, calls: sql<number>`count(*)::int`, tokens: tok })
+    .from(llmUsage)
+    .where(gte(llmUsage.createdAt, since7))
+    .groupBy(sql`coalesce(tag,'—')`)
+    .orderBy(desc(sql`sum(prompt_tokens + completion_tokens)`));
+
+  const nameExpr = sql<string>`coalesce(${users.name}, ${users.telegramUsername}, 'sistema')`;
+  const byUser = await db
+    .select({ name: nameExpr, calls: sql<number>`count(*)::int`, tokens: tok })
+    .from(llmUsage)
+    .leftJoin(users, eq(users.id, llmUsage.userId))
+    .where(gte(llmUsage.createdAt, since7))
+    .groupBy(nameExpr)
+    .orderBy(desc(sql`sum(${llmUsage.promptTokens} + ${llmUsage.completionTokens})`))
+    .limit(12);
+
+  const byDay = await db
+    .select({
+      day: sql<string>`to_char(created_at at time zone 'America/Sao_Paulo', 'YYYY-MM-DD')`,
+      tokens: tok,
+      calls: sql<number>`count(*)::int`,
+    })
+    .from(llmUsage)
+    .where(gte(llmUsage.createdAt, sql`now() - interval '14 days'`))
+    .groupBy(sql`1`)
+    .orderBy(sql`1`);
+
+  return {
+    total: tot ?? { calls: 0, tokens: 0, ok: 0, fallbackCalls: 0, rate429: 0, localFallback: 0 },
+    byProvider,
+    byTag,
+    byUser,
+    byDay,
   };
 }
 

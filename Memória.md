@@ -443,3 +443,33 @@ Deploy: bot + painel. `tsc` + `build` + `py_compile` OK. Guardas testadas ao viv
   - **Críticos:** F01 auth sem rate limit (código 6 díg + senha admin, força bruta), F02 sem backup do Postgres, F03 uso do código de login não-atômico, F04 conversa livre do bot sem teto (drena LLM compartilhado).
   - **Ordem sugerida:** backup → rate limit auth → teto de conversa → instrumentação de retenção → domínio próprio → quiet hours + pausar → chave por usuário.
   - Não implementei nenhum ainda (é análise); os críticos deveriam vir a seguir.
+
+## 2026-09-01 (continuação) — os 4 críticos resolvidos + limite de 40 msg/dia + dashboard de consumo
+
+Fernanda: "corrija todos os críticos, principalmente do backup, resolva todos, coloque um limite de 40 mensagens por dia por usuário e além disso no meu painel de admin eu quero ter um dash de consumo de token, fallback etc".
+
+### F02 — backup do Postgres (prioridade dela)
+- `scripts/backup-db.sh`: `docker exec arist-pg pg_dump` gzipado → `~/backups/` na VM (fora do volume do Docker — é o que quase se perdeu em 31/08), mantém os 14 mais recentes, valida que o dump não saiu vazio.
+- `aristotelia-backup.service` + `.timer` (systemd, diário 03:30, `RandomizedDelaySec`) — instalados e **testados** (rodei manual: dump de 17K, 18 `CREATE TABLE`, íntegro).
+- Off-site: opcional via `BACKUP_UPLOAD_URL` (PUT numa URL pré-assinada — guia pra Oracle Object Storage sem CLI no `scripts/systemd/README.md`). **Não configurado ainda** — precisa a Fernanda criar o bucket + PAR (3 min). Sem isso, protege contra o volume sumir mas não contra a VM/disco morrer.
+- `scripts/systemd/README.md`: as 5 unidades da VM documentadas (fonte da verdade).
+
+### F01 + F03 — auth endurecida
+- `web/src/lib/ratelimit.ts`: rate limit em memória por IP (janela deslizante).
+- `/api/auth/code`: 8 tentativas / 10 min por IP; consumo do código agora é **atômico** (`UPDATE ... WHERE used_at IS NULL RETURNING`, uma query só — fecha a corrida).
+- `/api/auth/admin`: 5 tentativas / 15 min por IP; senha comparada em tempo constante (`timingSafeEqual`); superadmin escolhido deterministicamente (mais antigo) em vez de indefinido com 2+ superadmins.
+- **Testado em produção:** 8 tentativas OK + 9ª→429 no código; 5 OK + 6ª→429 na senha admin.
+
+### F04 — limite de 40 mensagens de conversa livre por usuário/dia
+- `bot/handlers.py`: `CHAT_DAILY_CAP = 40`. Conta `events kind='msg:chat'` do dia; ao bater o teto, responde sem chamar o LLM ("bateu o limite... as da trilha seguem normais"). Só vale pra conversa livre — quiz/desafio/review/onboarding não contam.
+
+### Dashboard de consumo (painel → Admin → **Consumo**, só superadmin)
+- Migration `0010_llm_usage.sql`: 1 linha por chamada de LLM (user, origem bot/web, tag, provedor, modelo, tokens prompt/completion, se foi fallback, se caiu no pool local, status).
+- **Bot:** `bot/usage.py` — contextvar (`set_context(user_id, tag)` nos entry points: `jobs._ctx`, `on_text`, `onboarding._finish`) + fila thread-safe (o `llm.py` roda em thread via `asyncio.to_thread`, que propaga o contextvar — DB é async, não dá pra gravar direto de dentro da thread). `llm.py` grava um evento por tentativa de provedor (sucesso, 429, erro) + um se cair no pool local. Tick de 20s em `main.py` drena a fila e grava em lote.
+- **Web:** `coach-llm.ts` grava direto (já é async) — cadeia Groq→Gemini com o mesmo formato. `trilha-detail.ts` passa `{userId, tag:"trilha-detalhe"}`.
+- **Página** `/admin/consumo`: tokens+chamadas 7d, % que caiu em fallback, contagem de 429, aviso se algo caiu no pool local, gráfico de barras de tokens/dia (14d), "quem mais consome" (top 12), por provedor, por tipo de mensagem (tag). Usa `requireSuperadmin()`.
+- **Testado ponta a ponta em produção:** chamada real ao Groq com contexto setado → drenada pelo tick → apareceu certinha no dashboard (usuário, provedor, tokens). Linha de teste removida depois.
+
+**Deploy:** bot (migration 0010 aplicada) + painel. `py_compile`, `tsc --noEmit`, `next build` OK.
+
+**Ainda falta (não crítico, documentado no Raio-X):** off-site do backup (ação da Fernanda), F05–F16 do raio-x (domínio próprio, instrumentação de retenção, quiet hours, etc).

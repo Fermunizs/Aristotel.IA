@@ -7,7 +7,7 @@ import logging
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from . import db, prompts, scheduling
+from . import db, prompts, scheduling, usage
 from .util import ask_json, send_text
 
 log = logging.getLogger("aristotelia.onboarding")
@@ -85,6 +85,7 @@ async def _finish(context: ContextTypes.DEFAULT_TYPE, user, answers: dict) -> No
         return
 
     await send_text(context.bot, chat, "🧭 Fechado. Montando sua trilha... (uns segundos)")
+    usage.set_context(user["id"], "trilha")
     weeks = await build_trilha(user["name"], answers["goal"], answers["level"], answers["minutes"])
     if not weeks:
         await send_text(context.bot, chat,

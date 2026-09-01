@@ -180,6 +180,8 @@ tar czf - --exclude='__pycache__' bot db requirements.txt \
 
 O `.env` e o estado ficam só no VM (Postgres em Docker `arist-pg`) — o tar acima não toca neles.
 
+**Backup do Postgres:** `aristotelia-backup.timer` (systemd, diário 03:30) roda `scripts/backup-db.sh` — `pg_dump` gzipado em `~/backups/` (mantém 14) + PUT opcional numa URL pré-assinada (`BACKUP_UPLOAD_URL` no `.env`) pra sair da VM. Ver `scripts/systemd/README.md`. Restore: `gzip -dc ~/backups/aristotelia-<data>.sql.gz | docker exec -i arist-pg psql -U arist -d aristotelia`.
+
 **O `.env` no VM** está em `/home/ubuntu/aristotelia/.env` (mesmo conteúdo do local).
 
 Fly.io foi usado no dia 30/08 e **descartado** (trial sem cartão = 5 min; conta nova = ~US$2/mês). App `aristotelia-bot` já destruído; revogar o org token `aristotelia-deploy` no painel do Fly se quiser.

@@ -6,8 +6,10 @@ import logging
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from . import config, db, llm, onboarding, prompts
+from . import config, db, llm, onboarding, prompts, usage
 from .util import ask, ask_json, now_for, send_text
+
+CHAT_DAILY_CAP = 40  # mensagens de conversa livre por usuário por dia
 
 log = logging.getLogger("aristotelia.handlers")
 
@@ -178,20 +180,35 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await db.push_history(user["id"], "user", text)
 
     if ptype == "quiz":
+        usage.set_context(user["id"], "quiz")
         await _quiz(update, user, pending, text)
     elif ptype == "quiz2":
+        usage.set_context(user["id"], "quiz")
         await _quiz2(update, user, pending, text)
     elif ptype == "micro_q":
+        usage.set_context(user["id"], "micro")
         await _micro_q(update, user, pending, text)
     elif ptype in ("challenge", "challenge_done"):
+        usage.set_context(user["id"], "desafio")
         await _challenge(update, user, pending, text)
     elif ptype == "review":
+        usage.set_context(user["id"], "review")
         await _review(update, user, text)
     elif ptype == "content_confirm":
         await _content_confirm(update, user, text)
     elif ptype == "content_idea":
+        usage.set_context(user["id"], "conteudo")
         await _content_idea(update, user, text)
     else:
+        day = now_for(user).date()
+        if await db.chat_count_today(user["id"], day) >= CHAT_DAILY_CAP:
+            return await _reply(
+                update,
+                f"😌 Você bateu o limite de {CHAT_DAILY_CAP} mensagens de conversa hoje. "
+                "As da trilha (quiz, desafio, fechamento) seguem normais — amanhã a gente retoma o papo.",
+            )
+        await db.log_event(user["id"], "msg:chat", day)
+        usage.set_context(user["id"], "chat")
         plan = await db.get_plan(user["id"])
         goal = plan["goal"] if plan else None
         hist = await db.get_history(user["id"])
