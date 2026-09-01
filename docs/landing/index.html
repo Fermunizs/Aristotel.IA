@@ -1,0 +1,763 @@
+<title>Aristótel.IA</title>
+<meta name="description" content="Uma treinadora pessoal no Telegram para quem sabe o que estudar mas não consegue fazer todo dia." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" />
+
+<style>
+  /* ── tokens: espelham web/src/app/globals.css (caderno de campo) ────── */
+  :root {
+    --paper: #fbf7f0;
+    --paper-2: #f3ede1;
+    --ink: #2b2621;
+    --ink-soft: #7a7169;
+    --line: #e7ddcb;
+    --trail: #d9c4a3;
+    --growth: #3d7a5d;
+    --growth-soft: #e3ede6;
+    --clay: #c65d3b;
+    --clay-soft: #f6e4dc;
+    --forest: #20302a;
+    --forest-ink: #f3ede1;
+
+    --card-bg: color-mix(in srgb, var(--paper) 62%, transparent);
+    --card-border: color-mix(in srgb, #ffffff 50%, var(--line));
+    --card-shadow: 0 1px 2px rgba(43, 38, 33, 0.04), 0 14px 34px -16px rgba(43, 38, 33, 0.14);
+
+    --font-display: "Fraunces", ui-serif, Georgia, serif;
+    --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+    --font-mono: "Space Mono", ui-monospace, "SFMono-Regular", monospace;
+
+    --maxw: min(1060px, 92vw);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #1b1e1c;
+      --paper-2: #262a27;
+      --ink: #e6e1d6;
+      --ink-soft: #9c9488;
+      --line: #383d39;
+      --trail: #4f463a;
+      --growth: #5fa982;
+      --growth-soft: #22322b;
+      --clay: #d1794f;
+      --clay-soft: #3a271e;
+      --forest: #10140f;
+      --forest-ink: #e6e1d6;
+      --card-bg: color-mix(in srgb, var(--paper-2) 68%, transparent);
+      --card-border: color-mix(in srgb, #ffffff 8%, var(--line));
+      --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 14px 34px -16px rgba(0, 0, 0, 0.55);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper: #1b1e1c;
+    --paper-2: #262a27;
+    --ink: #e6e1d6;
+    --ink-soft: #9c9488;
+    --line: #383d39;
+    --trail: #4f463a;
+    --growth: #5fa982;
+    --growth-soft: #22322b;
+    --clay: #d1794f;
+    --clay-soft: #3a271e;
+    --forest: #10140f;
+    --forest-ink: #e6e1d6;
+    --card-bg: color-mix(in srgb, var(--paper-2) 68%, transparent);
+    --card-border: color-mix(in srgb, #ffffff 8%, var(--line));
+    --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 14px 34px -16px rgba(0, 0, 0, 0.55);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background:
+      radial-gradient(58vmax 58vmax at 6% 0%, color-mix(in srgb, var(--growth) 20%, transparent), transparent 55%),
+      radial-gradient(62vmax 62vmax at 98% 12%, color-mix(in srgb, var(--clay) 18%, transparent), transparent 52%),
+      radial-gradient(70vmax 70vmax at 78% 100%, color-mix(in srgb, var(--trail) 42%, transparent), transparent 55%);
+  }
+
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.012em;
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  p { margin: 0; }
+  a { color: inherit; }
+  code {
+    font-family: var(--font-mono);
+    font-size: 0.84em;
+    background: color-mix(in srgb, var(--ink) 9%, transparent);
+    padding: 0.05em 0.32em;
+    border-radius: 4px;
+  }
+
+  .wrap {
+    width: var(--maxw);
+    margin-inline: auto;
+  }
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--ink-soft);
+  }
+
+  section { padding-block: clamp(3.5rem, 8vw, 6.5rem); }
+
+  /* ── nav ──────────────────────────────────────────────────────────── */
+  header.nav {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    background: color-mix(in srgb, var(--paper) 78%, transparent);
+    border-bottom: 1px solid var(--line);
+  }
+  .nav-inner {
+    width: var(--maxw);
+    margin-inline: auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-block: 0.85rem;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-family: var(--font-display);
+    font-size: 1.12rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .brand svg { display: block; flex: none; }
+  .brand .dot { color: var(--clay); }
+
+  /* ── buttons ──────────────────────────────────────────────────────── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.72rem 1.15rem;
+    border-radius: 999px;
+    font-weight: 500;
+    font-size: 0.95rem;
+    text-decoration: none;
+    border: 1px solid transparent;
+    transition: transform 0.12s ease, background 0.12s ease;
+    white-space: nowrap;
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn-primary { background: var(--clay); color: #fff; }
+  .btn-primary:hover { background: color-mix(in srgb, var(--clay) 88%, #000); }
+  .btn-ghost { border-color: var(--line); color: var(--ink); background: transparent; }
+  .btn-ghost:hover { background: var(--paper-2); }
+  .btn-sm { padding: 0.5rem 0.9rem; font-size: 0.86rem; }
+
+  :focus-visible { outline: 2px solid var(--clay); outline-offset: 2px; border-radius: 4px; }
+
+  /* ── hero ─────────────────────────────────────────────────────────── */
+  .hero { padding-top: clamp(3rem, 7vw, 5rem); }
+  .hero h1 {
+    font-size: clamp(2.1rem, 5.4vw, 3.5rem);
+    line-height: 1.08;
+    max-width: 16ch;
+  }
+  .hero p.lede {
+    margin-top: 1.4rem;
+    font-size: clamp(1.02rem, 1.6vw, 1.2rem);
+    color: var(--ink-soft);
+    max-width: 52ch;
+  }
+  .hero .cta-row {
+    margin-top: 2rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+  }
+  .hero .note {
+    margin-top: 1rem;
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+  }
+  .hero-card {
+    margin-top: 3rem;
+    background: var(--card-bg);
+    backdrop-filter: blur(10px) saturate(1.4);
+    -webkit-backdrop-filter: blur(10px) saturate(1.4);
+    border: 1px solid var(--card-border);
+    border-radius: 20px;
+    box-shadow: var(--card-shadow);
+    padding: clamp(1.2rem, 3vw, 2rem);
+    display: grid;
+    gap: 0.9rem;
+  }
+  .chat-line { display: flex; gap: 0.7rem; align-items: flex-start; }
+  .chat-line .who {
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink-soft);
+    padding-top: 0.2rem;
+    flex: none;
+    width: 4.4rem;
+  }
+  .chat-line .msg {
+    background: var(--paper-2);
+    border: 1px solid var(--line);
+    border-radius: 4px 14px 14px 14px;
+    padding: 0.6rem 0.85rem;
+    font-size: 0.92rem;
+  }
+  .chat-line.me .msg {
+    background: var(--growth-soft);
+    border-color: color-mix(in srgb, var(--growth) 30%, transparent);
+    border-radius: 14px 4px 14px 14px;
+  }
+
+  /* ── section headers ──────────────────────────────────────────────── */
+  .sec-head { max-width: 46ch; display: grid; gap: 0.8rem; margin-bottom: 2.6rem; }
+  .sec-head h2 { font-size: clamp(1.6rem, 3.4vw, 2.3rem); line-height: 1.15; }
+  .sec-head p { color: var(--ink-soft); }
+
+  /* ── contrast / não é bot de lembrete ─────────────────────────────── */
+  .contrast { background: var(--forest); color: var(--forest-ink); }
+  .contrast .eyebrow { color: color-mix(in srgb, var(--forest-ink) 62%, transparent); }
+  .contrast h2 { font-size: clamp(1.6rem, 3.4vw, 2.3rem); max-width: 20ch; }
+  .contrast .cols {
+    margin-top: 2.4rem;
+    display: grid;
+    gap: 1.4rem 2.4rem;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  }
+  .contrast .passive { color: color-mix(in srgb, var(--forest-ink) 74%, transparent); }
+  .contrast .passive b { color: var(--forest-ink); font-weight: 600; }
+  .contrast .active-claim {
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    line-height: 1.4;
+  }
+  .contrast .active-claim .hl { color: var(--clay); }
+
+  /* ── ciclo (a trilha) ─────────────────────────────────────────────── */
+  .cycle { position: relative; }
+  .trail-spine {
+    position: absolute;
+    left: 50%;
+    top: 2rem;
+    bottom: 2rem;
+    transform: translateX(-50%);
+    width: 160px;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.55;
+  }
+  .trail-spine path { fill: none; stroke-linecap: round; }
+  .trail-spine .bed { stroke: var(--trail); stroke-width: 8; stroke-dasharray: 2 13; }
+  .trail-spine .done { stroke: var(--growth); stroke-width: 4; }
+
+  .steps {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    gap: clamp(1.1rem, 2.6vw, 1.8rem);
+    width: min(480px, 100%);
+    margin-inline: auto;
+  }
+  .step {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.9rem;
+    background: var(--card-bg);
+    backdrop-filter: blur(10px) saturate(1.4);
+    -webkit-backdrop-filter: blur(10px) saturate(1.4);
+    border: 1px solid var(--card-border);
+    border-radius: 18px;
+    box-shadow: var(--card-shadow);
+    padding: 1.2rem 1.3rem;
+  }
+  .step .stone {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.1rem;
+    height: 2.1rem;
+    border-radius: 999px;
+    background: var(--growth);
+    color: #fff;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    font-weight: 700;
+    flex: none;
+  }
+  .step h3 { font-size: 1.12rem; }
+  .step p { color: var(--ink-soft); font-size: 0.94rem; }
+  .step .top { display: flex; align-items: center; gap: 0.75rem; }
+
+  /* ── pilares ──────────────────────────────────────────────────────── */
+  .pillars {
+    display: grid;
+    gap: 1.1rem;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  }
+  .pillar {
+    background: var(--card-bg);
+    backdrop-filter: blur(10px) saturate(1.4);
+    -webkit-backdrop-filter: blur(10px) saturate(1.4);
+    border: 1px solid var(--card-border);
+    border-radius: 18px;
+    box-shadow: var(--card-shadow);
+    padding: 1.3rem;
+    display: grid;
+    gap: 0.5rem;
+    align-content: start;
+  }
+  .pillar .tag {
+    font-family: var(--font-mono);
+    font-size: 0.64rem;
+    text-transform: uppercase;
+    letter-spacing: 0.13em;
+    color: var(--clay);
+  }
+  .pillar h3 { font-size: 1.08rem; }
+  .pillar p { color: var(--ink-soft); font-size: 0.92rem; }
+
+  /* ── evolução strip ───────────────────────────────────────────────── */
+  .evo {
+    background: var(--card-bg);
+    backdrop-filter: blur(10px) saturate(1.4);
+    -webkit-backdrop-filter: blur(10px) saturate(1.4);
+    border: 1px solid var(--card-border);
+    border-radius: 20px;
+    box-shadow: var(--card-shadow);
+    padding: clamp(1.4rem, 3.5vw, 2.4rem);
+    display: grid;
+    gap: 1.6rem;
+    grid-template-columns: 1fr;
+  }
+  @media (min-width: 760px) { .evo { grid-template-columns: 1.1fr 1fr; align-items: center; } }
+  .evo h2 { font-size: clamp(1.5rem, 3vw, 2rem); }
+  .evo p { color: var(--ink-soft); margin-top: 0.7rem; }
+  .bars { display: flex; align-items: flex-end; gap: 0.5rem; height: 150px; }
+  .bars .bar {
+    flex: 1;
+    border-radius: 4px 4px 0 0;
+    background-image: repeating-linear-gradient(45deg, var(--growth) 0 2px, transparent 2px 5px);
+    border-top: 3px solid var(--growth);
+  }
+
+  /* ── planos ───────────────────────────────────────────────────────── */
+  .plans {
+    display: grid;
+    gap: 1.2rem;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    align-items: start;
+  }
+  .plan {
+    background: var(--card-bg);
+    backdrop-filter: blur(10px) saturate(1.4);
+    -webkit-backdrop-filter: blur(10px) saturate(1.4);
+    border: 1px solid var(--card-border);
+    border-radius: 20px;
+    box-shadow: var(--card-shadow);
+    padding: 1.6rem;
+    display: grid;
+    gap: 1rem;
+    align-content: start;
+  }
+  .plan.pro { border-color: color-mix(in srgb, var(--clay) 45%, transparent); }
+  .plan .plan-top { display: flex; align-items: baseline; justify-content: space-between; gap: 0.6rem; }
+  .plan h3 { font-size: 1.2rem; }
+  .badge {
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 0.28rem 0.5rem;
+    border-radius: 999px;
+    background: var(--clay-soft);
+    color: var(--clay);
+    white-space: nowrap;
+  }
+  .price { font-family: var(--font-display); font-size: 2rem; font-weight: 500; letter-spacing: -0.02em; }
+  .price small { font-family: var(--font-sans); font-size: 0.8rem; color: var(--ink-soft); font-weight: 400; }
+  .plan ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.55rem; }
+  .plan li { display: flex; gap: 0.55rem; font-size: 0.9rem; color: var(--ink-soft); }
+  .plan li::before { content: "↳"; color: var(--growth); flex: none; font-family: var(--font-mono); }
+  .plan .foot { font-size: 0.8rem; color: var(--ink-soft); }
+  .trial-note {
+    margin-top: 1.4rem;
+    text-align: center;
+    font-size: 0.9rem;
+    color: var(--ink-soft);
+  }
+  .trial-note b { color: var(--ink); font-weight: 600; }
+
+  /* ── faq ──────────────────────────────────────────────────────────── */
+  .faq { display: grid; gap: 0.6rem; max-width: 62ch; }
+  .faq details {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--card-bg);
+    padding: 0 1.1rem;
+  }
+  .faq summary {
+    cursor: pointer;
+    list-style: none;
+    padding: 1rem 0;
+    font-weight: 500;
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: center;
+  }
+  .faq summary::-webkit-details-marker { display: none; }
+  .faq summary::after { content: "+"; color: var(--clay); font-family: var(--font-mono); }
+  .faq details[open] summary::after { content: "–"; }
+  .faq details[open] summary { border-bottom: 1px solid var(--line); }
+  .faq .ans { padding: 0.9rem 0 1.1rem; color: var(--ink-soft); font-size: 0.94rem; }
+
+  /* ── cta final ────────────────────────────────────────────────────── */
+  .final { text-align: center; }
+  .final h2 { font-size: clamp(1.7rem, 4vw, 2.6rem); max-width: 20ch; margin-inline: auto; }
+  .final p { color: var(--ink-soft); margin-top: 1rem; max-width: 44ch; margin-inline: auto; }
+  .final .cta-row { margin-top: 2rem; display: flex; justify-content: center; flex-wrap: wrap; gap: 0.8rem; }
+
+  /* ── footer ───────────────────────────────────────────────────────── */
+  footer {
+    border-top: 1px solid var(--line);
+    padding-block: 2.5rem;
+  }
+  .foot-inner {
+    width: var(--maxw);
+    margin-inline: auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem 2rem;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+  }
+  .foot-inner nav { display: flex; gap: 1.4rem; flex-wrap: wrap; }
+  .foot-inner a { text-decoration: none; }
+  .foot-inner a:hover { color: var(--ink); }
+
+  .fade { opacity: 1; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .fade { opacity: 0; transform: translateY(14px); transition: opacity 0.6s ease, transform 0.6s ease; }
+    .fade.in { opacity: 1; transform: none; }
+    .flag { transform-box: fill-box; transform-origin: 50% 92%; animation: sway 3.8s ease-in-out infinite; }
+    @keyframes sway { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
+    .trail-spine .done { stroke-dasharray: 1400; stroke-dashoffset: 1400; animation: draw 2.4s ease forwards; }
+    @keyframes draw { to { stroke-dashoffset: 0; } }
+  }
+</style>
+
+<header class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="#top" aria-label="Aristótel.IA — início">
+      <svg width="24" height="24" viewBox="0 0 32 32" aria-hidden="true">
+        <path d="M6 24.5c3.5-1 6-1 10 0s8.5 1 10 0" fill="none" stroke="var(--ink)" stroke-width="2.6" stroke-linecap="round"/>
+        <path d="M13 24.5V6.5" fill="none" stroke="var(--ink)" stroke-width="2.6" stroke-linecap="round"/>
+        <path class="flag" d="M13 7c3.4.3 5.8 1.9 9.4 1.4-1.9 2.4-1.9 4 0 6.4-3.6.5-6-1.1-9.4-1.4Z" fill="var(--clay)"/>
+      </svg>
+      <span>Aristótel<span class="dot">.</span>IA</span>
+    </a>
+    <a class="btn btn-primary btn-sm" href="https://t.me/AristotelIA_bot">Começar no Telegram</a>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero wrap">
+    <p class="eyebrow">Agente de evolução 1%</p>
+    <h1>Você sabe o que estudar. Só não consegue fazer todo dia.</h1>
+    <p class="lede">
+      A Aristótel.IA vira sua treinadora: monta o plano, decide o que você faz hoje, te cobra,
+      corrige a rota e te mostra que você está evoluindo. No Telegram — onde você já está.
+    </p>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="https://t.me/AristotelIA_bot">Começar no Telegram</a>
+      <a class="btn btn-ghost" href="#como-funciona">Ver como funciona</a>
+    </div>
+    <p class="note">Grátis pra usar. Sem cartão. Diz o que quer aprender e a trilha nasce na hora.</p>
+
+    <div class="hero-card fade" aria-label="Exemplo de conversa com a treinadora">
+      <div class="chat-line">
+        <span class="who">08:00</span>
+        <span class="msg">Hoje: <b>closures em JavaScript</b>. Por que importa: é o que faz um contador lembrar o próprio número. Começa por: escreva uma função <code>criarContador()</code> que retorna outra função.</span>
+      </div>
+      <div class="chat-line me">
+        <span class="who">você</span>
+        <span class="msg">fiz, mas não entendi por que o número não zera</span>
+      </div>
+      <div class="chat-line">
+        <span class="who">Aristótel.IA</span>
+        <span class="msg">Porque a função de dentro segura a variável de fora — ela não morre quando <code>criarContador</code> termina. Agora me diz: se eu chamar <code>criarContador()</code> duas vezes, os dois contadores compartilham o número?</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="contrast" id="por-que">
+    <div class="wrap">
+      <p class="eyebrow">Não é bot de lembrete</p>
+      <h2>Não é mais um app pra você esquecer de abrir.</h2>
+      <div class="cols">
+        <p class="passive">
+          <b>Notion</b> te dá um quadro em branco. <b>Udemy</b>, um catálogo. <b>App de foco</b>, um cronômetro.
+          <b>ChatGPT</b>, um chat sem memória. Todos esperam que você já tenha a disciplina que você não tem —
+          e todos são mais um ícone pra ignorar.
+        </p>
+        <p class="active-claim">
+          A Aristótel.IA é <span class="hl">ativa</span>. Ela puxa a conversa, decide o próximo passo e
+          <span class="hl">não desiste de você</span>. E "hoje não" reagenda sem quebrar nada.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="cycle wrap" id="como-funciona">
+    <div class="sec-head">
+      <p class="eyebrow">O ciclo 1%</p>
+      <h2>Um pouco por dia, e o caminho aparece.</h2>
+      <p>Todo dia ela fecha o mesmo ciclo com você. Nada de despejo de conteúdo — um passo de cada vez.</p>
+    </div>
+
+    <svg class="trail-spine" viewBox="0 0 120 1000" preserveAspectRatio="none" aria-hidden="true">
+      <path class="bed" d="M60 10 C 20 130, 100 250, 60 370 S 20 610, 60 730 S 100 900, 60 990" />
+      <path class="done" d="M60 10 C 20 130, 100 250, 60 370 S 20 610, 60 730 S 100 900, 60 990" />
+    </svg>
+
+    <div class="steps">
+      <article class="step fade">
+        <div class="top"><span class="stone">1</span><h3>Dizer o que estudar</h3></div>
+        <p>Às 8h: o tópico de hoje e a primeira ação concreta. Não "estude funções" — "escreva uma função que…".</p>
+      </article>
+      <article class="step fade">
+        <div class="top"><span class="stone">2</span><h3>Fazer pensar</h3></div>
+        <p>Ela pergunta antes de explicar. Um conceito por vez. Quiz de uma pergunta, sua resposta, reforço.</p>
+      </article>
+      <article class="step fade">
+        <div class="top"><span class="stone">3</span><h3>Fazer aplicar</h3></div>
+        <p>Desafio de código de 10 minutos. "Não pesquise antes de tentar."</p>
+      </article>
+      <article class="step fade">
+        <div class="top"><span class="stone">4</span><h3>Registrar</h3></div>
+        <p>À noite você responde três linhas: o que aprendi, o que fiz, o que entendi melhor. Vira um card de evolução.</p>
+      </article>
+      <article class="step fade">
+        <div class="top"><span class="stone">5</span><h3>Virar conteúdo</h3></div>
+        <p>O que você aprendeu vira ideia de carrossel, reel ou thread — com rascunho de copy pronto.</p>
+      </article>
+      <article class="step fade">
+        <div class="top"><span class="stone">6</span><h3>Mostrar evolução</h3></div>
+        <p>Conceitos, prática, minutos de foco, streak. O gráfico sobe. Na terceira semana você vê.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="wrap" id="o-que-tem">
+    <div class="sec-head">
+      <p class="eyebrow">O que você ganha</p>
+      <h2>Uma treinadora, não um painel de configuração.</h2>
+      <p>Você define o objetivo. Ela monta o resto — e ajusta conforme você anda.</p>
+    </div>
+    <div class="pillars">
+      <article class="pillar fade">
+        <span class="tag">Trilha + checklist</span>
+        <h3>O plano se monta sozinho</h3>
+        <p>Semanas e dias gerados pra você, com tópico, objetivo e ação. A checklist do dia aparece pronta. Fez pelo Telegram? Marca sozinho.</p>
+      </article>
+      <article class="pillar fade">
+        <span class="tag">Trilha adaptativa</span>
+        <h3>Errou? Ela volta no assunto</h3>
+        <p>Errou os quizzes de um tópico e ela insere um dia de revisão. Acertou tudo e ela acelera.</p>
+      </article>
+      <article class="pillar fade">
+        <span class="tag">Foco</span>
+        <h3>Pomodoro que conta</h3>
+        <p>No painel e no Telegram. O bot silencia durante a sessão e soma os minutos de foco no seu histórico.</p>
+      </article>
+      <article class="pillar fade">
+        <span class="tag">Evolução</span>
+        <h3>A jornada, não a barra de progresso</h3>
+        <p>Dashboard do que você aprendeu, praticou e resolveu. Uma árvore de aprendizado que cresce a cada dia concluído.</p>
+      </article>
+      <article class="pillar fade">
+        <span class="tag">Conteúdo</span>
+        <h3>Formação virando post</h3>
+        <p>Banco de ideias e planner semanal. O que você estudou essa semana vira três peças pra publicar.</p>
+      </article>
+      <article class="pillar fade">
+        <span class="tag">Sem culpa</span>
+        <h3>"Hoje não" não te pune</h3>
+        <p>Horário de silêncio, pausar tudo numa tecla (viagem, doença), streak que não quebra por um dia perdido. O tom nunca cobra com peso.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="evo fade">
+      <div>
+        <p class="eyebrow">Por que na 3ª semana</p>
+        <h2>O valor é composto.</h2>
+        <p>
+          No dia 1 é só uma tarefa. Na terceira semana o gráfico já subiu, o card semanal aponta seu ponto
+          forte e o fraco (sincero), e você tem prova de que mudou de patamar. É aí que fica difícil parar.
+        </p>
+      </div>
+      <div class="bars" role="img" aria-label="Gráfico de evolução subindo ao longo das semanas">
+        <span class="bar" style="height: 22%"></span>
+        <span class="bar" style="height: 30%"></span>
+        <span class="bar" style="height: 28%"></span>
+        <span class="bar" style="height: 46%"></span>
+        <span class="bar" style="height: 58%"></span>
+        <span class="bar" style="height: 55%"></span>
+        <span class="bar" style="height: 74%"></span>
+        <span class="bar" style="height: 90%"></span>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap" id="planos">
+    <div class="sec-head">
+      <p class="eyebrow">Planos</p>
+      <h2>Comece de graça. Pague quando quiser mais.</h2>
+      <p>Enquanto a AristotelIA está em validação, tudo está liberado. Quem entra agora trava o preço de fundador.</p>
+    </div>
+    <div class="plans">
+      <article class="plan fade">
+        <div class="plan-top"><h3>Free</h3></div>
+        <div class="price">R$0 <small>pra sempre</small></div>
+        <ul>
+          <li>O ciclo 1% inteiro, todo dia</li>
+          <li>Trilha + checklist com auto-check</li>
+          <li>Pomodoro e minutos de foco</li>
+          <li>Gráfico e árvore de evolução</li>
+          <li>Horário de silêncio e pausar sem culpa</li>
+          <li>Todos os canais (Telegram hoje; push e e-mail a caminho)</li>
+          <li>Até 5 lembretes no seu ritmo</li>
+        </ul>
+        <a class="btn btn-primary" href="https://t.me/AristotelIA_bot">Começar no Telegram</a>
+      </article>
+      <article class="plan pro fade">
+        <div class="plan-top"><h3>Pro</h3><span class="badge">Em breve · fundador</span></div>
+        <div class="price">R$19 <small>/mês · ou R$149/ano</small></div>
+        <ul>
+          <li>Tudo do Free</li>
+          <li>Agenda: foco marcado nas suas brechas reais (Google/Outlook)</li>
+          <li>Planner de conteúdo semanal com rascunho de copy</li>
+          <li>Análise semanal profunda e comparação entre semanas</li>
+          <li>Export do histórico (CSV / Notion)</li>
+          <li>Até 30 lembretes e limites maiores</li>
+        </ul>
+        <a class="btn btn-ghost" href="https://t.me/AristotelIA_bot">Quero ser fundador</a>
+        <p class="foot">Preço travado pra quem entra na fase de validação.</p>
+      </article>
+      <article class="plan fade">
+        <div class="plan-top"><h3>Trial</h3></div>
+        <div class="price">14 dias <small>de Pro, sem cartão</small></div>
+        <ul>
+          <li>Libera tudo do Pro por duas semanas</li>
+          <li>Tempo de ver o card semanal e o gráfico subir</li>
+          <li>No fim vira Free — seu histórico fica inteiro</li>
+          <li>Sem cobrança automática, sem pegadinha</li>
+        </ul>
+        <a class="btn btn-ghost" href="https://t.me/AristotelIA_bot">Testar o Pro</a>
+      </article>
+    </div>
+    <p class="trial-note">Preços em avaliação com a primeira turma. <b>O Free continua grátis de verdade.</b></p>
+  </section>
+
+  <section class="wrap" id="faq">
+    <div class="sec-head">
+      <p class="eyebrow">Perguntas rápidas</p>
+      <h2>O que costuma travar antes de começar.</h2>
+    </div>
+    <div class="faq">
+      <details>
+        <summary>Preciso de cartão?</summary>
+        <div class="ans">Não. O Free é grátis de verdade e o trial do Pro não pede cartão nem cobra no fim.</div>
+      </details>
+      <details>
+        <summary>Não uso Telegram.</summary>
+        <div class="ans">Dá pra usar pelo painel web — trilha, checklist, foco e a conversa com a treinadora. Push no navegador e e-mail estão a caminho.</div>
+      </details>
+      <details>
+        <summary>E se eu furar um dia?</summary>
+        <div class="ans">"Hoje não" reagenda sem quebrar o streak. Sumir uma semana também não te pune — a trilha congela e espera você voltar.</div>
+      </details>
+      <details>
+        <summary>Serve só pra programar?</summary>
+        <div class="ans">O motor é o mesmo pra qualquer coisa que você queira aprender com constância. Hoje o conteúdo é mais forte em tech, que é onde a gente está validando.</div>
+      </details>
+      <details>
+        <summary>Quanto vai custar depois?</summary>
+        <div class="ans">O Free continua grátis. O Pro deve ficar em R$19/mês (ou R$149/ano), e quem entra agora trava esse valor. Nada é cobrado sem você escolher.</div>
+      </details>
+      <details>
+        <summary>E os meus dados?</summary>
+        <div class="ans">Ficam no nosso banco, não são vendidos. Você pode pedir o export (no Pro) ou a exclusão a qualquer momento.</div>
+      </details>
+    </div>
+  </section>
+
+  <section class="final wrap">
+    <p class="eyebrow">Um passo</p>
+    <h2>Diz o que você quer aprender.</h2>
+    <p>A Aristótel.IA monta sua trilha e te cobra amanhã de manhã.</p>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="https://t.me/AristotelIA_bot">Começar no Telegram</a>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="foot-inner">
+    <span>Aristótel.IA — agente de evolução 1%</span>
+    <nav>
+      <a href="/privacidade">Privacidade</a>
+      <a href="https://t.me/AristotelIA_bot">Fale com a gente</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+  (function () {
+    var els = document.querySelectorAll(".fade");
+    if (!("IntersectionObserver" in window) || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      els.forEach(function (el) { el.classList.add("in"); });
+      return;
+    }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }
+      });
+    }, { threshold: 0.12 });
+    els.forEach(function (el) { io.observe(el); });
+  })();
+</script>
