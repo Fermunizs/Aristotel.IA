@@ -23,6 +23,15 @@ LEARNING_GUIDE = (
     "'depois faça X e Y', 'escreva N exemplos'. Só o primeiro passo."
 )
 
+REVIEW_GUIDE = (
+    "A pessoa errou o quiz sobre este tópico — trilha adaptativa: hoje é dia de REVISÃO, não tópico novo. "
+    "Formato exato:\n"
+    "'🔁 Hoje é revisão: <tópico>.'\n"
+    "<reexplique o conceito central em 2-3 linhas, do jeito mais simples possível, ângulo diferente do que já foi dito>\n"
+    "'Agora tenta de novo: <1 mini-exercício de fixação, pequeno e concreto>.'\n"
+    "Máximo 5 linhas. Sem lista numerada, sem culpa — errar faz parte."
+)
+
 MICRO_LEARNING = (
     "Explique UMA ideia do tópico de hoje — a mais central — em até 4 linhas, "
     "com no máximo 1 exemplo de código curto (2-4 linhas). "

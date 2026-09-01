@@ -83,6 +83,22 @@ async def daily_learning_guide(context: ContextTypes.DEFAULT_TYPE) -> None:
     if not plan:
         return
     day = now_for(user).date()
+    should_advance = (getattr(context, "job", None) and context.job.data or {}).get("advance", True)
+
+    # trilha adaptativa: errou um quiz → hoje é revisão desse tópico, não o próximo da trilha.
+    # não consome a fila em /hoje (should_advance=False) pra não "gastar" a revisão só de olhar.
+    review_topic = await db.pop_review_topic(user["id"]) if should_advance else None
+    if review_topic:
+        texto = await ask(
+            prompts.persona(user["name"], plan["goal"], user["coach_tone"], user["coach_note"])
+            + "\n\n" + prompts.REVIEW_GUIDE + _note(context),
+            f"Tópico pra revisar: {review_topic}", temperature=0.7, max_tokens=200,
+        )
+        await _deliver(context, user, chat, "Dia de revisão", texto)
+        await db.add_task(user["id"], day, "trilha", f"Revisão: {review_topic}", None)
+        await db.log_event(user["id"], "msg:guide", day, {"revisao": review_topic})
+        return  # não avança o dia — o tópico novo espera a revisão passar
+
     texto = await ask(prompts.persona(user["name"], plan["goal"], user["coach_tone"], user["coach_note"]) + "\n\n" + prompts.LEARNING_GUIDE + _note(context),
                       prompts.learning_context(plan), temperature=0.7, max_tokens=170)
     await _deliver(context, user, chat, "O que fazer hoje", f"🧭 *Guia do dia*\n\n{texto}")
@@ -90,7 +106,7 @@ async def daily_learning_guide(context: ContextTypes.DEFAULT_TYPE) -> None:
     if topic:
         await db.add_task(user["id"], day, "trilha", topic["topic"], topic["goal"])
     await db.log_event(user["id"], "msg:guide", day)
-    if (getattr(context, "job", None) and context.job.data or {}).get("advance", True):
+    if should_advance:
         _advance_day(plan)
         await db.update_plan_position(user["id"], plan["current"]["week"], plan["current"]["day"])
 
@@ -156,14 +172,13 @@ async def daily_insight(context: ContextTypes.DEFAULT_TYPE) -> None:
     user, chat = await _ctx(context)
     if not user:
         return
-    note = _note(context)
-    if note:
-        plan = await db.get_plan(user["id"])
-        goal = plan["goal"] if plan else None
-        texto = await ask(prompts.persona(user["name"], goal, user["coach_tone"], user["coach_note"]) + "\n\n" + prompts.INSIGHT + note,
-                          "Gere o insight de hoje.", temperature=0.9, max_tokens=260)
-    else:
-        texto = await _shared_daily(user, "insight", prompts.INSIGHT, "Gere o insight de hoje.", 0.9)
+    # SEMPRE personalizado — o insight tem que ser da área da pessoa (goal). Compartilhar
+    # 1 texto/dia entre todo mundo (como faz a motivação) misturava tópicos de gente com
+    # objetivos diferentes (ex.: quem quer aprender vendas recebendo insight de programação).
+    plan = await db.get_plan(user["id"])
+    goal = plan["goal"] if plan else None
+    texto = await ask(prompts.persona(user["name"], goal, user["coach_tone"], user["coach_note"]) + "\n\n" + prompts.INSIGHT + _note(context),
+                      "Gere o insight de hoje.", temperature=0.9, max_tokens=260)
     await _deliver(context, user, chat, "Insight", f"🧠 *Insight*\n\n{texto}")
     await db.log_event(user["id"], "msg:insight", now_for(user).date())
 

@@ -146,6 +146,7 @@ async def get_plan(user_id) -> dict | None:
     d = dict(r)
     d["weeks"] = _j(d["weeks"])
     d["known_topics"] = _j(d["known_topics"])
+    d["review_queue"] = _j(d.get("review_queue")) or []
     d["current"] = {"week": d["current_week"], "day": d["current_day"]}
     return d
 
@@ -184,6 +185,45 @@ async def update_plan_position(user_id, week: int, day: int) -> None:
                WHERE user_id = $1 AND active""",
             user_id, week, day,
         )
+
+
+async def add_review_topic(user_id, topic: str) -> None:
+    """Trilha adaptativa: errou o quiz de um tópico → entra na fila de revisão."""
+    if not topic:
+        return
+    async with pool().acquire() as con:
+        exists = await con.fetchval(
+            """SELECT review_queue @> $2::jsonb FROM learning_plans
+               WHERE user_id = $1 AND active""",
+            user_id, json.dumps([topic]),
+        )
+        if not exists:
+            await con.execute(
+                """UPDATE learning_plans SET review_queue = review_queue || $2::jsonb, updated_at = now()
+                   WHERE user_id = $1 AND active""",
+                user_id, json.dumps([topic]),
+            )
+
+
+async def pop_review_topic(user_id) -> str | None:
+    """Tira e devolve o próximo tópico da fila de revisão (None se vazia)."""
+    async with pool().acquire() as con:
+        async with con.transaction():
+            row = await con.fetchrow(
+                "SELECT id, review_queue FROM learning_plans WHERE user_id = $1 AND active FOR UPDATE",
+                user_id,
+            )
+            if not row:
+                return None
+            queue = _j(row["review_queue"]) or []
+            if not queue:
+                return None
+            topic, rest = queue[0], queue[1:]
+            await con.execute(
+                "UPDATE learning_plans SET review_queue = $2::jsonb WHERE id = $1",
+                row["id"], json.dumps(rest),
+            )
+            return topic
 
 
 async def add_known_topic(user_id, topic: str) -> None:

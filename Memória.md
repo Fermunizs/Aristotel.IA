@@ -473,3 +473,34 @@ Fernanda: "corrija todos os críticos, principalmente do backup, resolva todos, 
 **Deploy:** bot (migration 0010 aplicada) + painel. `py_compile`, `tsc --noEmit`, `next build` OK.
 
 **Ainda falta (não crítico, documentado no Raio-X):** off-site do backup (ação da Fernanda), F05–F16 do raio-x (domínio próprio, instrumentação de retenção, quiet hours, etc).
+
+## 2026-09-01 (continuação) — bug gravíssimo (fuga de objetivo) + trilha adaptativa + árvore de aprendizado
+
+Fernanda: "que a trilha se adapte se caso a pessoa errar e faça um tipo de revisão" + ideia da árvore de aprendizado (galhos/troncos crescendo) + "erro gravíssimo: o usuário Savage falou que queria aprender sobre vendas, a IA do nada começou a falar sobre tag HTML".
+
+### O bug (investigado e corrigido)
+Não era a trilha (a trilha da Savage estava certinha — "Princípio da Reciprocidade", "Escuta Ativa", tudo sobre vendas). Era a **conversa livre**: ela mandou um texto que era um exemplo de oferta que ela mesma escreveu ("combo de site + google meu negócio... top do google" — provavelmente resposta da tarefa do dia 1, "escreva 3 ofertas de valor"), mandado como mensagem solta em vez de pela tarefa guiada. O LLM pegou as palavras "site" e "google" e literalmente puxou a conversa pra SEO/HTML, ignorando que o objetivo dela é vendas. Quando ela tentou corrigir ("como aprendo vendas?"), a IA nem corrigiu direito.
+- **Causa raiz:** o `goal` ia pro system prompt como frase fraca ("Ela está trabalhando para: X"), sem instrução de blindagem — nada impedia o modelo de "seguir a associação de palavras" pra um assunto não relacionado.
+- **Corrigido em `bot/coach.py::persona()`** (afeta TODA função, não só chat): guarda-corpo explícito — "TUDO que você disser fica DENTRO desse objetivo... nunca puxe a conversa pra um assunto não relacionado só porque uma palavra lembrou outra coisa", com o exemplo literal do bug (site/SEO vs. vendas) pro modelo reconhecer o padrão.
+- **`handlers.on_text`** (conversa livre): agora também manda o tópico do dia da trilha no prompt, reforço extra de contexto.
+- **Testado com o cenário exato da Savage** (mesma mensagem, mesmo objetivo) contra o LLM real: antes vertia pra HTML, depois da correção respondeu 100% dentro de vendas/reciprocidade.
+- **Efeito colateral também corrigido:** o `daily_insight` (que eu tinha posto pra ser compartilhado entre usuários, sessão passada) foi revertido pra **sempre personalizado** — compartilhar um insight só faz sentido pra conteúdo genérico (motivação), não pra algo que promete "ligado à área da pessoa". Isso era um risco do MESMO tipo de bug (alguém aprendendo vendas recebendo insight de banco de dados). `daily_motivation` continua compartilhada (é realmente genérica, sem risco).
+
+### Trilha adaptativa (erra o quiz → dia de revisão)
+- Migration `0011_review_queue.sql`: `learning_plans.review_queue jsonb`.
+- `bot/db.py`: `add_review_topic` (dedup via `@>` antes de inserir) / `pop_review_topic` (atômico, `FOR UPDATE`).
+- `handlers._quiz`: errou a rodada 1 → tópico entra na fila.
+- `jobs.daily_learning_guide`: antes de gerar o guia normal, tira 1 item da fila (se houver) e manda um guia de **revisão** (`prompts.REVIEW_GUIDE` — reexplica em 2-3 linhas + 1 mini-exercício) em vez do próximo tópico novo — **sem avançar o dia** (o tópico novo só espera 1 dia a mais). `/hoje` (advance=False) não consome a fila, só a execução agendada das 08h consome.
+
+### Árvore de aprendizado
+`web/src/components/LearningTree.tsx` — SVG procedural (sem lib, mesma técnica do TrailMap: trig + paths calculados), server component, sem JS no cliente:
+- Tronco cresce (altura ∝ progresso real: dias concluídos / total) com um "tronco fantasma" translúcido mostrando o tamanho final.
+- 1 galho por semana, alternando lado (mesmo zigue-zague do TrailMap), com folhas = dias (verde cheio = feito, anel terracota = hoje, oco pontilhado = futuro — vocabulário visual idêntico ao TrailMap).
+- Semana toda concluída → galho vira verde inteiro (status calculado por posição real, não por número da semana — corrigi um bug de borda onde a última semana ficava "ativa" pra sempre depois de terminar a trilha).
+- Trilha 100% completa → flor/fruto terracota no topo (broto verde enquanto não termina).
+- Testado visualmente em 4 estágios (início/meio/quase lá/completo) antes de subir — comportamento validado, bug de borda achado e corrigido nesse teste.
+- Entra no topo da página **Trilha**, acima do TrailMap (que continua sendo a navegação dia-a-dia); a árvore é a "visão geral".
+
+**Deploy:** bot (migration 0011) + painel. `py_compile`, `tsc --noEmit`, `next build` OK. Testado em produção (página `/trilha` da Fernanda renderizando a árvore real).
+
+**Pergunta em aberto pra Fernanda:** quer que eu mande uma mensagem pra Savage explicando/pedindo desculpa pelo desvio de assunto? Não fiz isso sem perguntar — é mensagem pra um usuário real dela.

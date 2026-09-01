@@ -211,11 +211,13 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         usage.set_context(user["id"], "chat")
         plan = await db.get_plan(user["id"])
         goal = plan["goal"] if plan else None
+        topic = prompts.today_topic(plan)["topic"] if plan else None
         hist = await db.get_history(user["id"])
         resp = await ask(
             prompts.persona(user["name"], goal, user["coach_tone"], user["coach_note"])
-            + "\n\nVocê está numa conversa com a pessoa. Responda direto, sincero, sem textão. "
-            "Use o histórico pra manter o contexto.",
+            + f"\n\nVocê está numa conversa com a pessoa. O tópico de hoje na trilha dela é: "
+            f"{topic or 'ainda sem trilha'}. Responda direto, sincero, sem textão, sempre dentro do "
+            "objetivo dela. Use o histórico pra manter o contexto.",
             text, history=hist[:-1], max_tokens=500,
         )
         await db.push_history(user["id"], "assistant", resp)
@@ -228,8 +230,11 @@ async def _quiz(update: Update, user, pending: dict, text: str) -> None:
         return await _reply(update, "Responde só com A, B ou C.")
     acertou = escolha == pending.get("correta", "")
     day = now_for(user).date()
+    topico = pending.get("topico", "")
     await db.log_event(user["id"], "quiz", day,
-                       {"topico": pending.get("topico", ""), "resultado": "acerto" if acertou else "erro"})
+                       {"topico": topico, "resultado": "acerto" if acertou else "erro"})
+    if not acertou:  # trilha adaptativa: entra na fila de revisão do dia do guia
+        await db.add_review_topic(user["id"], topico)
     exp = pending.get("explicacao", "")
     head = f"✅ Isso. {exp}" if acertou else f"❌ Era *{pending.get('correta')}*. {exp}"
 

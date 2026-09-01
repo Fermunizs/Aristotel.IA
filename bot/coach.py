@@ -90,7 +90,14 @@ def persona(
     if name:
         s += f"\n\nA pessoa se chama {name}."
     if goal:
-        s += f" Ela está trabalhando para: {goal}."
+        s += (
+            f" Ela está trabalhando para: {goal}. TUDO que você disser fica DENTRO desse objetivo — "
+            "nunca puxe a conversa pra um assunto técnico ou tópico não relacionado só porque uma "
+            "palavra da mensagem dela lembrou outra coisa. Exemplo do que NÃO fazer: o objetivo dela é "
+            "vendas e ela menciona a palavra 'site' → não vire a conversa pra SEO/HTML; continue "
+            "falando de vendas. Se ela perguntar algo fora do objetivo, responda rápido e traga de "
+            "volta pra ele."
+        )
     return s
 
 

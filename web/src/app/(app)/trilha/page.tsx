@@ -1,6 +1,7 @@
 import { getSession } from "@/lib/session";
 import { dashboardData } from "@/lib/queries";
 import { TrailMap } from "@/components/TrailMap";
+import { LearningTree } from "@/components/LearningTree";
 import { EmptyStone } from "@/components/art";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +35,17 @@ export default async function Trilha() {
           Toque em qualquer dia pra ver o objetivo dele.
         </p>
       </header>
+
+      <div className="card px-2 py-6">
+        <LearningTree
+          weeks={d.plan.weeks}
+          currentWeek={d.plan.currentWeek}
+          currentDay={d.plan.currentDay}
+        />
+        <p className="mt-1 text-center text-xs text-ink-soft">
+          Cada galho é uma semana, cada folha um dia. Ela cresce junto com você.
+        </p>
+      </div>
 
       <div className="card overflow-hidden px-2 py-6">
         <TrailMap
