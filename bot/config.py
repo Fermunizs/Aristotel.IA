@@ -28,29 +28,62 @@ DEFAULT_TZ = ZoneInfo(DEFAULT_TZ_NAME)
 # --- LLM (cadeia de provedores com fallback) --------------------------
 # A ordem = prioridade. O 1º com API key configurada é o primário; os outros
 # são fallback automático quando o de cima estoura rate limit / cai.
-# Sobrescreva a ordem com LLM_PROVIDER=gemini,groq  (csv). LLM_MODEL força o
-# modelo só do 1º provedor da lista.
+# Sobrescreva a ordem com LLM_PROVIDER=gemini,groq,cerebras  (csv).
+# Modelo por provedor: <PROVEDOR>_MODEL no .env (ex: GROQ_MODEL=llama-3.3-70b-versatile).
+# LLM_MODEL (legado) força o modelo só do 1º provedor da lista.
+# Todos são OpenAI-compat — pra adicionar um provedor, basta uma linha aqui + a key.
 
 _PROVIDER_SPECS = {
-    "groq": {
-        "base_url": "https://api.groq.com/openai/v1",
-        "api_key_env": "GROQ_API_KEY",
-        # alternativas nesta conta: qwen/qwen3.8-27b (PT mais natural), openai/gpt-oss-20b
-        "default_model": "openai/gpt-oss-120b",
-    },
     "gemini": {
         "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
         "api_key_env": "GEMINI_API_KEY",
-        "default_model": "gemini-2.0-flash",
+        "model_env": "GEMINI_MODEL",
+        "default_model": "gemini-2.5-flash",  # 2.5 tem "thinking"; melhor que 2.0-flash
+    },
+    "groq": {
+        "base_url": "https://api.groq.com/openai/v1",
+        "api_key_env": "GROQ_API_KEY",
+        "model_env": "GROQ_MODEL",
+        # alternativas nesta conta: qwen/qwen3.8-27b (PT mais natural), openai/gpt-oss-20b
+        "default_model": "openai/gpt-oss-120b",
+    },
+    "cerebras": {
+        "base_url": "https://api.cerebras.ai/v1",
+        "api_key_env": "CEREBRAS_API_KEY",
+        "model_env": "CEREBRAS_MODEL",
+        "default_model": "gpt-oss-120b",  # tb: llama-3.3-70b, qwen-3-235b-a22b-instruct-2507
+    },
+    "sambanova": {
+        "base_url": "https://api.sambanova.ai/v1",
+        "api_key_env": "SAMBANOVA_API_KEY",
+        "model_env": "SAMBANOVA_MODEL",
+        "default_model": "Meta-Llama-3.3-70B-Instruct",  # tb: DeepSeek-V3-0324, Qwen3-32B
+    },
+    "mistral": {
+        "base_url": "https://api.mistral.ai/v1",
+        "api_key_env": "MISTRAL_API_KEY",
+        "model_env": "MISTRAL_MODEL",
+        "default_model": "mistral-small-latest",
+    },
+    "github": {
+        "base_url": "https://models.github.ai/inference",
+        "api_key_env": "GITHUB_MODELS_TOKEN",  # PAT com escopo models:read
+        "model_env": "GITHUB_MODELS_MODEL",
+        "default_model": "openai/gpt-4o-mini",  # tb: microsoft/Phi-3.5-mini-instruct, meta/Llama-3.3-70B-Instruct
     },
     "openrouter": {
         "base_url": "https://openrouter.ai/api/v1",
         "api_key_env": "OPENROUTER_API_KEY",
+        "model_env": "OPENROUTER_MODEL",
         "default_model": "meta-llama/llama-3.3-70b-instruct:free",
     },
 }
 
-_order = [p.strip().lower() for p in os.getenv("LLM_PROVIDER", "groq,gemini,openrouter").split(",") if p.strip()]
+_order = [
+    p.strip().lower()
+    for p in os.getenv("LLM_PROVIDER", "gemini,groq,cerebras,sambanova,mistral,github,openrouter").split(",")
+    if p.strip()
+]
 _forced_model = os.getenv("LLM_MODEL", "").strip()
 
 # lista final: só provedores conhecidos e com key; mantém a ordem pedida
@@ -62,11 +95,14 @@ for i, name in enumerate(_order):
     key = os.getenv(spec["api_key_env"], "").strip()
     if not key:
         continue
+    model = os.getenv(spec.get("model_env", ""), "").strip() or spec["default_model"]
+    if i == 0 and _forced_model:
+        model = _forced_model
     LLM_CHAIN.append({
         "name": name,
         "base_url": spec["base_url"],
         "api_key": key,
-        "model": _forced_model if (i == 0 and _forced_model) else spec["default_model"],
+        "model": model,
     })
 
 # compat com código/scripts que ainda leem os nomes antigos

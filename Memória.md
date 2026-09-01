@@ -542,3 +542,41 @@ Conversa livre com a treinadora direto no painel, **mesma memória** do bot (`bo
 **Não configurado (e nunca esteve no escopo): integração com Google / Outlook / e-mail.** O login do painel é código de 6 díg do Telegram + senha admin. Canais de lembrete: `telegram` e `push` (web push) funcionam; `email` existe no enum do schema mas é Fase 2, sem implementação. Não há sync de calendário nem "entrar com Google". Se a Fernanda quiser, é trabalho à parte (OAuth + Google Calendar API / Microsoft Graph, ou provedor de e-mail transacional).
 
 **Nota pra sincronia:** `bot/coach.py::persona()` e `web/src/lib/persona.ts` são cópias manuais. Mudou uma → mudar a outra.
+
+## 2026-09-01 (continuação) — planos Aprendiz/Sábio/Mestre + LP no Vercel + cadeia de LLM ampliada
+
+Sessão longa. Vários pedidos da Fernanda.
+
+### Lote pequeno já no ar (deploy feito no início da sessão)
+`/pausar` + `/voltar` (pausa lembretes sem quebrar streak), horário de silêncio (`preferences.quiet_start/quiet_end`, opt-in no painel → `_in_quiet` no scheduling), pomodoro que sobrevive a refresh (localStorage), aba **"Conversar"** no painel (chat com a treinadora, mesma memória `bot_state.history` do bot, teto de 40/dia compartilhado). Commits `8eee551`, `cfa4d27`.
+
+### Integração de calendário — SPEC + PLANO escritos, NÃO implementado
+- `docs/superpowers/specs/2026-09-01-integracao-calendario-design.md` + `docs/superpowers/plans/2026-09-01-integracao-calendario.md` (12 tasks TDD).
+- Abordagem: OAuth Google + Microsoft no app web, evento recorrente por lembrete num calendário secundário "Aristótel.IA", timer systemd de sync. Lembrete vira multi-canal (`channels` array).
+- Trava: Fernanda precisa criar projeto Google Cloud + registro Azure + preencher `web.env`. Passo a passo no spec §9.
+
+### Landing page — app Next STANDALONE em `landing/` (porta 3001), pra Vercel
+- Separado do painel. `next build` OK. NÃO deployado — Fernanda sobe no Vercel (root dir `landing`, env `GROQ_API_KEY`/`GEMINI_API_KEY`).
+- Tema claro por padrão (igual ao painel, toggle opcional), estátua da Aristótel.IA no hero (`referencias/ChatGPT Image…png` otimizada → `landing/public/aristotelia.webp`).
+- **Widget "monte metade da trilha":** `POST /api/trilha/preview` gera a semana 1 via LLM (rate limit 6/h por IP + cache por objetivo). Mostra 2 dias, borra 3-5, CTA pro Telegram. Sem key → exemplo estático.
+- `/privacidade` incluída (exigida pela tela de consentimento do Google).
+- **Nota:** `next dev` corrompe o `.next` no OneDrive (mesmo problema do painel — ver `scripts/deploy-web.sh`). Rodar via `next build && next start`.
+
+### Planos — DECIDIDOS (cobrança ainda desligada)
+`docs/precos-e-limites.md` reescrito. `Produto.md §10` atualizado.
+- **Aprendiz** (grátis) · **Sábio** (R$39/mês, R$290/ano) · **Mestre** (R$79/mês, R$590/ano) · **Turma** (B2B, sob consulta).
+- Fundador: Sábio R$29 / Mestre R$59, travado **12 meses** (transição, não pra sempre).
+- Grátis generoso: ciclo 1% + gráfico de evolução + 25 msg/dia + 5 crons + 1 trilha. Nunca corta o ciclo básico/canais/gráfico.
+- Headline dos pagos = **conteúdo → rede social** (LinkedIn/IG/X com copy). + multi-trilha (3/6, modelo de dias-da-semana por trilha), agenda, análise profunda, export. Mestre: ilimitado + revisão espaçada + pergunta estratégica + trilhas-modelo + parceiro de constância + boletim de autoridade + prioridade no LLM.
+- **Status de build:** Aprendiz ~90% pronto. Pagos = majoritariamente roadmap (multi-trilha, agenda, pipeline de conteúdo, export, boletim, prioridade LLM, B2B cohort não existem). Enum `plan` é `free/pro/unlimited` — precisa migration + `LIMIT` maps por tier.
+
+### Cadeia de LLM ampliada (pedido: "Gemini mais inteligente? mais opções de chave")
+- `bot/config.py::_PROVIDER_SPECS` agora tem **7 provedores** OpenAI-compat: gemini, groq, cerebras, sambanova, mistral, github (GitHub Models), openrouter. Espelhado em `web/src/lib/coach-llm.ts` e `landing/src/lib/llm.ts` (SPECS + ORDER de `LLM_PROVIDER`).
+- **Gemini agora é o 1º** da ordem padrão, e o modelo default subiu pra **`gemini-2.5-flash`** (era 2.0; o 2.5 tem "thinking", melhor). Groq 2º.
+- Modelo por provedor via `<PROVEDOR>_MODEL` no `.env` (antes só `LLM_MODEL` do 1º).
+- `bot/llm.py`: `reasoning_effort=low` agora pra qualquer `gpt-oss` (groq E cerebras).
+- Fernanda precisa: criar contas Cerebras/SambaNova/Mistral/GitHub-PAT (5 min cada), colar keys no `.env`/`web.env`, e ajustar `LLM_PROVIDER=` na ordem que quiser.
+- `py_compile` + `build_app` + `tsc` (web/landing) + `next build` (landing) OK.
+
+### Ainda na fila (ordem a definir com a Fernanda)
+B) enum de planos + teto por plano · C) implementar o calendário · D) aviso de quase-limite de key + dashboard de servidor no `/admin` · E) multi-trilha · F) pipeline conteúdo→rede social.

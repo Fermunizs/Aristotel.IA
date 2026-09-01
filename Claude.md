@@ -118,14 +118,21 @@ AristotelIA/
 
 ```
 TELEGRAM_TOKEN=...            # do BotFather
-LLM_PROVIDER=groq             # groq | openrouter
-GROQ_API_KEY=...              # https://console.groq.com/keys  (grátis)
-OPENROUTER_API_KEY=...        # https://openrouter.ai/keys     (grátis, opcional)
-LLM_MODEL=                    # opcional, sobrescreve o modelo padrão do provedor
+LLM_PROVIDER=gemini,groq,cerebras,sambanova,mistral,github,openrouter   # ordem = prioridade
+GEMINI_API_KEY=...            # https://aistudio.google.com/apikey
+GROQ_API_KEY=...              # https://console.groq.com/keys
+CEREBRAS_API_KEY=...          # https://cloud.cerebras.ai
+SAMBANOVA_API_KEY=...         # https://cloud.sambanova.ai
+MISTRAL_API_KEY=...           # https://console.mistral.ai
+GITHUB_MODELS_TOKEN=...       # PAT github, escopo models:read
+OPENROUTER_API_KEY=...        # https://openrouter.ai/keys
+LLM_MODEL=                    # legado — sobrescreve o modelo só do 1º provedor
+GEMINI_MODEL= / GROQ_MODEL= / ...  # opcional, modelo por provedor
 TZ=America/Sao_Paulo
 ```
 
-Modelos padrão (em `config.py`): Groq → `openai/gpt-oss-120b` (alternativas nesta conta: `qwen/qwen3.8-27b`, `openai/gpt-oss-20b`); OpenRouter → `meta-llama/llama-3.3-70b-instruct:free`.
+**Cadeia de LLM** (`bot/config.py::_PROVIDER_SPECS`, espelhada em `web/src/lib/coach-llm.ts` e `landing/src/lib/llm.ts`): 7 provedores OpenAI-compat. Só entram na cadeia os que têm key; a ordem vem de `LLM_PROVIDER`. Se o 1º estoura rate limit / cai, `llm.py` passa pro próximo (concorrência e cooldown por-provedor). Adicionar provedor = 1 linha em `_PROVIDER_SPECS` (base_url + env da key) + a key no `.env`.
+Modelos padrão: Gemini → `gemini-2.5-flash` · Groq → `openai/gpt-oss-120b` (reasoning_effort=low) · Cerebras → `gpt-oss-120b` · SambaNova → `Meta-Llama-3.3-70B-Instruct` · Mistral → `mistral-small-latest` · GitHub Models → `openai/gpt-4o-mini` · OpenRouter → `meta-llama/llama-3.3-70b-instruct:free`.
 Obs.: a conta Groq da Fernanda só expõe alguns modelos (sem Llama 3.3/4). Conferir com `GET /openai/v1/models`.
 
 Se o LLM falhar, `llm.py` usa um fallback local (pool de frases) para o bot nunca ficar mudo.

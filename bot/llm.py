@@ -45,7 +45,7 @@ class _Provider:
     def call(self, messages: list, temperature: float, max_tokens: int) -> tuple[str, object]:
         kwargs: dict = dict(model=self.model, messages=messages,
                             temperature=temperature, max_tokens=max_tokens)
-        if self.name == "groq" and "gpt-oss" in self.model:
+        if "gpt-oss" in self.model:  # groq e cerebras aceitam reasoning_effort
             kwargs["extra_body"] = {"reasoning_effort": "low"}
 
         with self._sem:

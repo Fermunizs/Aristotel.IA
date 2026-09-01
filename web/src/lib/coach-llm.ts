@@ -4,20 +4,52 @@
 
 type Provider = { name: string; base: string; key: string; model: string };
 
-const CHAIN: Provider[] = [
-  {
-    name: "groq",
-    base: process.env.LLM_BASE_URL || "https://api.groq.com/openai/v1",
-    key: process.env.GROQ_API_KEY || "",
-    model: process.env.LLM_MODEL || "openai/gpt-oss-120b",
-  },
-  {
-    name: "gemini",
+// Espelha bot/config.py::_PROVIDER_SPECS. Todos OpenAI-compat.
+// Ordem: LLM_PROVIDER (csv). Modelo por provedor: <PROVEDOR>_MODEL.
+const SPECS: Record<string, { base: string; keyEnv: string; modelEnv: string; model: string }> = {
+  gemini: {
     base: "https://generativelanguage.googleapis.com/v1beta/openai",
-    key: process.env.GEMINI_API_KEY || "",
-    model: "gemini-2.0-flash",
+    keyEnv: "GEMINI_API_KEY", modelEnv: "GEMINI_MODEL", model: "gemini-2.5-flash",
   },
-].filter((p) => p.key);
+  groq: {
+    base: "https://api.groq.com/openai/v1",
+    keyEnv: "GROQ_API_KEY", modelEnv: "GROQ_MODEL", model: "openai/gpt-oss-120b",
+  },
+  cerebras: {
+    base: "https://api.cerebras.ai/v1",
+    keyEnv: "CEREBRAS_API_KEY", modelEnv: "CEREBRAS_MODEL", model: "gpt-oss-120b",
+  },
+  sambanova: {
+    base: "https://api.sambanova.ai/v1",
+    keyEnv: "SAMBANOVA_API_KEY", modelEnv: "SAMBANOVA_MODEL", model: "Meta-Llama-3.3-70B-Instruct",
+  },
+  mistral: {
+    base: "https://api.mistral.ai/v1",
+    keyEnv: "MISTRAL_API_KEY", modelEnv: "MISTRAL_MODEL", model: "mistral-small-latest",
+  },
+  github: {
+    base: "https://models.github.ai/inference",
+    keyEnv: "GITHUB_MODELS_TOKEN", modelEnv: "GITHUB_MODELS_MODEL", model: "openai/gpt-4o-mini",
+  },
+  openrouter: {
+    base: "https://openrouter.ai/api/v1",
+    keyEnv: "OPENROUTER_API_KEY", modelEnv: "OPENROUTER_MODEL",
+    model: "meta-llama/llama-3.3-70b-instruct:free",
+  },
+};
+
+const ORDER = (process.env.LLM_PROVIDER || "gemini,groq,cerebras,sambanova,mistral,github,openrouter")
+  .split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+
+const CHAIN: Provider[] = ORDER.flatMap((name, i) => {
+  const s = SPECS[name];
+  const key = s ? (process.env[s.keyEnv] || "") : "";
+  if (!s || !key) return [];
+  const model =
+    (process.env[s.modelEnv] || "").trim() ||
+    (i === 0 && process.env.LLM_MODEL ? process.env.LLM_MODEL : s.model);
+  return [{ name, base: s.base, key, model }];
+});
 
 type Msg = { role: "system" | "user" | "assistant"; content: string };
 type Meta = { userId?: string; tag?: string };
