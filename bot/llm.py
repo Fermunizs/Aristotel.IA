@@ -42,7 +42,7 @@ class _Provider:
         self._sem = threading.Semaphore(config.LLM_CONCURRENCY)
         self._cooldown_until = 0.0
 
-    def call(self, messages: list, temperature: float, max_tokens: int) -> tuple[str, object]:
+    def call(self, messages: list, temperature: float, max_tokens: int) -> tuple[str, object, dict]:
         kwargs: dict = dict(model=self.model, messages=messages,
                             temperature=temperature, max_tokens=max_tokens)
         if "gpt-oss" in self.model:  # groq e cerebras aceitam reasoning_effort
@@ -57,10 +57,11 @@ class _Provider:
                     raw = self._client.chat.completions.with_raw_response.create(**kwargs)
                     resp = raw.parse()
                     h = raw.headers
+                    snap = _rl_snapshot(h)
                     rem = float(h.get("x-ratelimit-remaining-tokens", "999999"))
                     if rem < max_tokens * 1.2:
                         self._cooldown_until = time.time() + _seconds(h.get("x-ratelimit-reset-tokens"))
-                    return (resp.choices[0].message.content or "").strip(), getattr(resp, "usage", None)
+                    return (resp.choices[0].message.content or "").strip(), getattr(resp, "usage", None), snap
                 except RateLimitError as e:
                     retry_after = _seconds(getattr(e, "response", None)
                                            and e.response.headers.get("retry-after"))
@@ -95,6 +96,38 @@ def unlabel(text: str) -> str:
     return _LEADING_EMOJI.sub("", tidy(text)).strip()
 
 
+def _rl_snapshot(h) -> dict:
+    """Extrai TODOS os headers x-ratelimit-* que o provedor mandou (requests e tokens,
+    limit e remaining e reset). Groq/Cerebras usam os nomes *-requests/*-tokens;
+    OpenRouter usa os genéricos x-ratelimit-{limit,remaining,reset}; Gemini não manda
+    nada — nesse caso as chaves vêm None e a estimativa fica por conta do llm_limits."""
+    def num(*keys: str) -> float | None:
+        for k in keys:
+            v = h.get(k)
+            if v is None:
+                continue
+            try:
+                return float(v)
+            except (TypeError, ValueError):
+                continue
+        return None
+
+    rem_req = num("x-ratelimit-remaining-requests", "x-ratelimit-remaining")
+    lim_req = num("x-ratelimit-limit-requests", "x-ratelimit-limit")
+    rem_tok = num("x-ratelimit-remaining-tokens")
+    lim_tok = num("x-ratelimit-limit-tokens")
+    reset = _seconds(h.get("x-ratelimit-reset-tokens")
+                     or h.get("x-ratelimit-reset-requests")
+                     or h.get("x-ratelimit-reset")) or None
+    return {
+        "rl_remaining_requests": int(rem_req) if rem_req is not None else None,
+        "rl_remaining_tokens": int(rem_tok) if rem_tok is not None else None,
+        "rl_limit_requests": int(lim_req) if lim_req is not None else None,
+        "rl_limit_tokens": int(lim_tok) if lim_tok is not None else None,
+        "rl_reset_seconds": reset,
+    }
+
+
 def _seconds(v: str | None) -> float:
     """'9.7s' / '1m30s' / '2.5' -> segundos."""
     if not v:
@@ -114,12 +147,12 @@ def _call(messages: list, temperature: float, max_tokens: int) -> str:
     last: Exception | None = None
     for i, p in enumerate(chain):
         try:
-            text, u = p.call(messages, temperature, max_tokens)
+            text, u, rl = p.call(messages, temperature, max_tokens)
             usage.record(
                 provider=p.name, model=p.model,
                 prompt_tokens=int(getattr(u, "prompt_tokens", 0) or 0),
                 completion_tokens=int(getattr(u, "completion_tokens", 0) or 0),
-                fallback=(i > 0), ok=True, status="ok", **ctx,
+                fallback=(i > 0), ok=True, status="ok", **rl, **ctx,
             )
             return text
         except _ProviderFailed as e:

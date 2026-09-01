@@ -5,7 +5,7 @@ import logging
 
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
 
-from . import coach, config, db, handlers, scheduling, usage
+from . import coach, config, db, handlers, llm_limits, scheduling, usage, vitals
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s", level=logging.INFO
@@ -22,6 +22,8 @@ async def _post_init(app: Application) -> None:
     app.job_queue.run_repeating(_coach_tick, interval=120, first=120, name="coach")
     app.job_queue.run_repeating(_cleanup_tick, interval=86400, first=3600, name="cleanup")
     app.job_queue.run_repeating(_usage_tick, interval=20, first=25, name="usage")
+    app.job_queue.run_repeating(_limits_tick, interval=120, first=90, name="limits")
+    app.job_queue.run_repeating(_vitals_tick, interval=60, first=20, name="vitals")
     log.info("Aristótel.IA no ar. LLM: %s (%s)", config.LLM_PROVIDER, config.LLM_MODEL)
 
 
@@ -32,6 +34,28 @@ async def _usage_tick(context) -> None:
             await db.record_llm_usage(rows)
         except Exception:  # noqa: BLE001
             log.exception("falha ao gravar telemetria de LLM (%d linhas descartadas)", len(rows))
+
+
+async def _limits_tick(context) -> None:
+    """D1: checa se algum provedor de LLM cruzou 80% de um limite conhecido e,
+    se cruzou, registra um evento (no máx 1 por provedor por hora)."""
+    try:
+        for m in await db.llm_pressure():
+            pct = llm_limits.pressure_pct(m["provider"], m)
+            if pct >= llm_limits.NEAR_LIMIT_PCT:
+                win = llm_limits.worst_window(m["provider"], m)
+                if await db.log_near_limit(m["provider"], pct, win, m):
+                    log.warning("LLM %s perto do limite: %.0f%% (%s)", m["provider"], pct * 100, win)
+    except Exception:  # noqa: BLE001
+        log.exception("limits tick falhou")
+
+
+async def _vitals_tick(context) -> None:
+    """D2: grava um snapshot da saúde da VM em system_vitals."""
+    try:
+        await db.save_vitals(vitals.collect())
+    except Exception:  # noqa: BLE001
+        log.exception("vitals tick falhou")
 
 
 async def _coach_tick(context) -> None:

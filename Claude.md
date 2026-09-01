@@ -137,6 +137,10 @@ Obs.: a conta Groq da Fernanda só expõe alguns modelos (sem Llama 3.3/4). Conf
 
 Se o LLM falhar, `llm.py` usa um fallback local (pool de frases) para o bot nunca ficar mudo.
 
+**Observabilidade (superadmin):**
+- `/admin/consumo` — tokens/chamadas/fallback/429 por dia, usuário, provedor e tag (tabela `llm_usage`). Tem também a seção **"Limites das chaves"**: por provedor da cadeia, quão perto está de estourar o rate limit do free tier. Usa os headers `x-ratelimit-*` quando o provedor manda (Groq/Cerebras/OpenRouter) e, quando não manda (Gemini), estima pelo uso das últimas 24h contra `web/src/lib/llm-limits.ts` / `bot/llm_limits.py` (limites **aproximados** — ajustar lá). O bot grava `events(kind='llm:near_limit:<provider>')` quando cruza 80% (job `_limits_tick`, no máx 1/provedor/hora).
+- `/admin/servidor` — saúde da VM Oracle (CPU load, RAM/swap, disco, serviços systemd + `arist-pg`, tamanho do Postgres, último backup, uptime do bot). Tabela `system_vitals` (1 linha, upsert), alimentada pelo job `_vitals_tick` a cada 60s (`bot/vitals.py`).
+
 ---
 
 ## 6. Rodar

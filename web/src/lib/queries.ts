@@ -1,6 +1,8 @@
 import { and, eq, gte, sql, desc } from "drizzle-orm";
 import { db } from "./db";
-import { contentIdeas, events, focusSessions, learningPlans, llmUsage, streaks, tasks, users } from "./schema";
+import { contentIdeas, events, focusSessions, learningPlans, llmUsage, streaks, systemVitals, tasks, users } from "./schema";
+import { llmChain } from "./coach-llm";
+import { PROVIDER_LIMITS, pressurePct, pressureTone, type Pressure } from "./llm-limits";
 
 const todayISO = () =>
   new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
@@ -186,6 +188,171 @@ export async function llmConsumo() {
     byUser,
     byDay,
   };
+}
+
+// ── D1: pressão nas chaves de LLM (aviso de quase-limite) ────────────
+export type LimiteProvider = {
+  provider: string;
+  model: string | null;
+  inChain: boolean;
+  reqDay: number;
+  tokDay: number;
+  reqMin: number;
+  tokMin: number;
+  peakRpm: number;
+  peakTpm: number;
+  limits: (typeof PROVIDER_LIMITS)[string] | null;
+  snap: {
+    remReq: number | null;
+    limReq: number | null;
+    remTok: number | null;
+    limTok: number | null;
+    resetSeconds: number | null;
+    at: Date;
+  } | null;
+  pct: number;
+  tone: "ok" | "amber" | "red";
+  lastNearLimit: Date | null;
+  cooldownLikely: boolean;
+};
+
+export async function llmLimites(): Promise<LimiteProvider[]> {
+  const chain = llmChain();
+
+  const rows = (await db.execute(sql`
+    WITH lm AS (
+      SELECT provider, count(*)::int AS c,
+             coalesce(sum(prompt_tokens + completion_tokens), 0)::int AS tok
+      FROM llm_usage WHERE created_at > now() - interval '60 seconds' GROUP BY provider
+    ),
+    day AS (
+      SELECT provider, count(*)::int AS c,
+             coalesce(sum(prompt_tokens + completion_tokens), 0)::int AS tok
+      FROM llm_usage WHERE created_at > now() - interval '24 hours' GROUP BY provider
+    ),
+    permin AS (
+      SELECT provider, date_trunc('minute', created_at) AS m,
+             count(*) AS c, sum(prompt_tokens + completion_tokens) AS tok
+      FROM llm_usage WHERE created_at > now() - interval '24 hours' GROUP BY provider, m
+    ),
+    peak AS (
+      SELECT provider, max(c)::int AS peak_rpm, coalesce(max(tok), 0)::int AS peak_tpm
+      FROM permin GROUP BY provider
+    ),
+    snap AS (
+      SELECT DISTINCT ON (provider) provider,
+        rl_remaining_requests, rl_limit_requests,
+        rl_remaining_tokens::float8 AS rl_remaining_tokens,
+        rl_limit_tokens::float8 AS rl_limit_tokens,
+        rl_reset_seconds, created_at AS snap_at
+      FROM llm_usage
+      WHERE created_at > now() - interval '1 hour'
+        AND (rl_remaining_requests IS NOT NULL OR rl_remaining_tokens IS NOT NULL)
+      ORDER BY provider, created_at DESC
+    ),
+    cool AS (
+      SELECT provider, max(created_at) AS last_429
+      FROM llm_usage WHERE status = '429' AND created_at > now() - interval '5 minutes'
+      GROUP BY provider
+    )
+    SELECT d.provider,
+      d.c AS req_day, d.tok AS tok_day,
+      coalesce(lm.c, 0) AS req_min, coalesce(lm.tok, 0) AS tok_min,
+      coalesce(pk.peak_rpm, 0) AS peak_rpm, coalesce(pk.peak_tpm, 0) AS peak_tpm,
+      s.rl_remaining_requests, s.rl_limit_requests,
+      s.rl_remaining_tokens, s.rl_limit_tokens, s.rl_reset_seconds, s.snap_at,
+      cool.last_429
+    FROM day d
+    LEFT JOIN lm ON lm.provider = d.provider
+    LEFT JOIN peak pk ON pk.provider = d.provider
+    LEFT JOIN snap s ON s.provider = d.provider
+    LEFT JOIN cool ON cool.provider = d.provider
+  `)) as unknown as Array<Record<string, unknown>>;
+
+  const nearRows = (await db.execute(sql`
+    SELECT kind, max(created_at) AS at FROM events
+    WHERE kind LIKE 'llm:near_limit:%' AND created_at > now() - interval '60 days'
+    GROUP BY kind
+  `)) as unknown as Array<{ kind: string; at: string | Date }>;
+  const near = new Map<string, Date>();
+  for (const r of nearRows) near.set(r.kind.replace("llm:near_limit:", ""), new Date(r.at as string));
+
+  const byProvider = new Map<string, Record<string, unknown>>();
+  for (const r of rows) byProvider.set(String(r.provider), r);
+
+  // ordem: a cadeia primeiro; depois qualquer provedor com tráfego fora dela (menos 'fallback')
+  const names = [
+    ...chain.map((c) => c.name),
+    ...[...byProvider.keys()].filter(
+      (n) => n !== "fallback" && !chain.some((c) => c.name === n),
+    ),
+  ];
+
+  const num = (v: unknown): number | null =>
+    v == null ? null : typeof v === "number" ? v : Number(v);
+
+  return names.map((provider) => {
+    const r = byProvider.get(provider) ?? {};
+    const chainEntry = chain.find((c) => c.name === provider) ?? null;
+    const limits = PROVIDER_LIMITS[provider] ?? null;
+
+    const m: Pressure = {
+      reqDay: num(r.req_day) ?? 0,
+      tokDay: num(r.tok_day) ?? 0,
+      reqMin: num(r.req_min) ?? 0,
+      tokMin: num(r.tok_min) ?? 0,
+      rlRemainingRequests: num(r.rl_remaining_requests),
+      rlLimitRequests: num(r.rl_limit_requests),
+      rlRemainingTokens: num(r.rl_remaining_tokens),
+      rlLimitTokens: num(r.rl_limit_tokens),
+    };
+    const pct = pressurePct(provider, m);
+
+    const snapAt = r.snap_at ? new Date(r.snap_at as string) : null;
+    const resetSeconds = num(r.rl_reset_seconds);
+    const last429 = r.last_429 ? new Date(r.last_429 as string) : null;
+    const cooldownLikely =
+      (!!last429 && Date.now() - last429.getTime() < 90_000) ||
+      (!!snapAt &&
+        m.rlLimitTokens != null &&
+        m.rlRemainingTokens != null &&
+        m.rlLimitTokens > 0 &&
+        m.rlRemainingTokens / m.rlLimitTokens < 0.05 &&
+        resetSeconds != null &&
+        snapAt.getTime() + resetSeconds * 1000 > Date.now());
+
+    return {
+      provider,
+      model: chainEntry?.model ?? null,
+      inChain: !!chainEntry,
+      reqDay: m.reqDay,
+      tokDay: m.tokDay,
+      reqMin: m.reqMin,
+      tokMin: m.tokMin,
+      peakRpm: num(r.peak_rpm) ?? 0,
+      peakTpm: num(r.peak_tpm) ?? 0,
+      limits,
+      snap: snapAt
+        ? {
+            remReq: m.rlRemainingRequests,
+            limReq: m.rlLimitRequests,
+            remTok: m.rlRemainingTokens,
+            limTok: m.rlLimitTokens,
+            resetSeconds,
+            at: snapAt,
+          }
+        : null,
+      pct,
+      tone: pressureTone(pct),
+      lastNearLimit: near.get(provider) ?? null,
+      cooldownLikely,
+    };
+  });
+}
+
+export async function serverVitals() {
+  const [v] = await db.select().from(systemVitals).where(eq(systemVitals.id, 1)).limit(1);
+  return v ?? null;
 }
 
 export async function adminOverview() {

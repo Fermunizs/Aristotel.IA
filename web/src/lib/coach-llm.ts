@@ -51,16 +51,67 @@ const CHAIN: Provider[] = ORDER.flatMap((name, i) => {
   return [{ name, base: s.base, key, model }];
 });
 
+/** Cadeia de provedores configurada (com key), em ordem de prioridade. Usada pelo /admin/consumo. */
+export function llmChain(): { name: string; model: string }[] {
+  return CHAIN.map((p) => ({ name: p.name, model: p.model }));
+}
+
+/** '9.7s' | '1m30s' | '2.5' -> segundos (espelha bot/llm.py::_seconds). */
+function resetSeconds(v: string | null): number | null {
+  if (!v) return null;
+  const m = String(v).trim().match(/(?:(\d+)m)?([\d.]+)s?/);
+  if (!m) return null;
+  return Number(m[1] || 0) * 60 + Number(m[2] || 0);
+}
+
+type RlSnapshot = {
+  rlRemainingRequests: number | null;
+  rlRemainingTokens: number | null;
+  rlLimitRequests: number | null;
+  rlLimitTokens: number | null;
+  rlResetSeconds: number | null;
+};
+
+function rlSnapshot(h: Headers): RlSnapshot {
+  const num = (...keys: string[]): number | null => {
+    for (const k of keys) {
+      const v = h.get(k);
+      if (v == null) continue;
+      const f = parseFloat(v);
+      if (Number.isFinite(f)) return f;
+    }
+    return null;
+  };
+  return {
+    rlRemainingRequests: num("x-ratelimit-remaining-requests", "x-ratelimit-remaining"),
+    rlRemainingTokens: num("x-ratelimit-remaining-tokens"),
+    rlLimitRequests: num("x-ratelimit-limit-requests", "x-ratelimit-limit"),
+    rlLimitTokens: num("x-ratelimit-limit-tokens"),
+    rlResetSeconds: resetSeconds(
+      h.get("x-ratelimit-reset-tokens") ||
+        h.get("x-ratelimit-reset-requests") ||
+        h.get("x-ratelimit-reset"),
+    ),
+  };
+}
+
+const NO_RL: RlSnapshot = {
+  rlRemainingRequests: null, rlRemainingTokens: null,
+  rlLimitRequests: null, rlLimitTokens: null, rlResetSeconds: null,
+};
+
 type Msg = { role: "system" | "user" | "assistant"; content: string };
 type Meta = { userId?: string; tag?: string };
 
 async function record(row: {
   userId?: string; tag?: string; provider: string; model: string | null;
   prompt: number; completion: number; fallback: boolean; ok: boolean; status: string;
+  rl?: RlSnapshot;
 }) {
   try {
     const { db } = await import("./db");
     const { llmUsage } = await import("./schema");
+    const rl = row.rl ?? NO_RL;
     await db.insert(llmUsage).values({
       userId: row.userId ?? null,
       source: "web",
@@ -72,6 +123,11 @@ async function record(row: {
       fallback: row.fallback,
       ok: row.ok,
       status: row.status,
+      rlRemainingRequests: rl.rlRemainingRequests,
+      rlRemainingTokens: rl.rlRemainingTokens,
+      rlLimitRequests: rl.rlLimitRequests,
+      rlLimitTokens: rl.rlLimitTokens,
+      rlResetSeconds: rl.rlResetSeconds,
       createdAt: new Date(),
     });
   } catch {
@@ -79,7 +135,7 @@ async function record(row: {
   }
 }
 
-async function callOne(p: Provider, messages: Msg[], maxTokens: number): Promise<{ text: string; usage: { prompt_tokens?: number; completion_tokens?: number } }> {
+async function callOne(p: Provider, messages: Msg[], maxTokens: number): Promise<{ text: string; usage: { prompt_tokens?: number; completion_tokens?: number }; rl: RlSnapshot }> {
   const body: Record<string, unknown> = {
     model: p.model,
     messages,
@@ -101,7 +157,11 @@ async function callOne(p: Provider, messages: Msg[], maxTokens: number): Promise
     }
     if (!res.ok) throw new Error(`${p.name} ${res.status}: ${await res.text().catch(() => "")}`);
     const json = await res.json();
-    return { text: (json.choices?.[0]?.message?.content ?? "").trim(), usage: json.usage ?? {} };
+    return {
+      text: (json.choices?.[0]?.message?.content ?? "").trim(),
+      usage: json.usage ?? {},
+      rl: rlSnapshot(res.headers),
+    };
   }
   throw new Error(`${p.name} rate limit persistente`);
 }
@@ -112,11 +172,11 @@ async function chat(messages: Msg[], maxTokens: number, meta: Meta): Promise<str
   for (let i = 0; i < CHAIN.length; i++) {
     const p = CHAIN[i];
     try {
-      const { text, usage } = await callOne(p, messages, maxTokens);
+      const { text, usage, rl } = await callOne(p, messages, maxTokens);
       await record({
         ...meta, provider: p.name, model: p.model,
         prompt: usage.prompt_tokens ?? 0, completion: usage.completion_tokens ?? 0,
-        fallback: i > 0, ok: true, status: "ok",
+        fallback: i > 0, ok: true, status: "ok", rl,
       });
       return text;
     } catch (e) {

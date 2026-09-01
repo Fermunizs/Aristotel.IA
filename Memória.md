@@ -578,5 +578,28 @@ Sessão longa. Vários pedidos da Fernanda.
 - Fernanda precisa: criar contas Cerebras/SambaNova/Mistral/GitHub-PAT (5 min cada), colar keys no `.env`/`web.env`, e ajustar `LLM_PROVIDER=` na ordem que quiser.
 - `py_compile` + `build_app` + `tsc` (web/landing) + `next build` (landing) OK.
 
+### Recurso "D" — aviso de quase-limite de key + métricas de servidor no `/admin` (FEITO, falta deploy)
+**Migration `0012_limits_vitals.sql`** (NÃO rodada — o runner do bot aplica no deploy):
+- `llm_usage` ganhou 5 colunas nullable: `rl_remaining_requests/rl_remaining_tokens/rl_limit_requests/rl_limit_tokens/rl_reset_seconds` (headers `x-ratelimit-*` por chamada).
+- `events.user_id` virou **nullable** (evento de sistema `llm:near_limit:<provider>` não tem dono). Drizzle: `events.userId` sem `.notNull()`.
+- Tabela nova `system_vitals` (1 linha, PK fixa `id=1`, upsert).
+
+**D1 — quase-limite das chaves de LLM:**
+- `bot/llm.py`: `_Provider.call()` agora devolve 3-tupla `(texto, usage, snapshot)`; `_rl_snapshot()` lê TODOS os headers `x-ratelimit-*` (requests+tokens, nomes `*-requests`/`*-tokens` do Groq/Cerebras E os genéricos do OpenRouter). Gemini não manda nada → campos None.
+- `web/src/lib/coach-llm.ts`: `rlSnapshot(res.headers)` idem; `record()` grava os 5 campos. Exporta `llmChain()`.
+- `bot/llm_limits.py` + `web/src/lib/llm-limits.ts` (espelhos): `PROVIDER_LIMITS` (rpm/rpd/tpm/tpd por provedor — **APROXIMADOS, chutados da doc, precisam ajuste real**) + `pressure_pct()` (usa header quando tem, senão estima pelo uso das últimas 24h/1min).
+- `bot/main.py`: job `_limits_tick` (120s) → `db.llm_pressure()` + `db.log_near_limit()` grava `events(kind='llm:near_limit:<provider>')` quando cruza 80%, no máx 1/provedor/hora.
+- Dashboard: **seção nova em `/admin/consumo`** ("Limites das chaves · agora") — 1 card por provedor da cadeia: requests/tokens 24h vs limite, pico/min, header mais recente, % com cor (clay >70%, vermelho >90%), cooldown provável, último aperto. (não fiz página `/admin/limites` — ficou mais limpo dentro do consumo.)
+
+**D2 — métricas do servidor:**
+- `bot/vitals.py` (novo): `collect()` lê `/proc/loadavg`, `/proc/meminfo`, `shutil.disk_usage`, `systemctl is-active` (aristotelia, aristotelia-web, aristotelia-backup.timer), `docker inspect arist-pg`, arquivo mais novo em `~/backups/`, uptime do processo. Tudo em try/except isolado — em dev (Windows) degrada sem quebrar.
+- `bot/db.py`: `save_vitals()` (upsert + `pg_database_size`). `bot/main.py`: job `_vitals_tick` (60s).
+- Página nova `/admin/servidor` (server component, `requireSuperadmin`): CPU load, RAM/swap (vermelho se RAM livre <100 MB), disco, serviços ✅/❌, tamanho do Postgres, último backup (âmbar >36h), uptime, "atualizado há Xs".
+- `Sidebar.tsx`: item "Servidor" no bloco superadmin (some na impersonação, igual "Consumo").
+
+**Scripts de asserção:** `scripts/check_llm_limits.py`, `scripts/check_vitals.py` — passam.
+**Checks:** `py_compile bot/*.py` · `build_app()` · `tsc --noEmit` · `next build` — todos OK.
+**Falta a Fernanda:** subir o deploy (bot + web) — a migration 0012 aplica sozinha no restart do bot. Depois, calibrar os limites em `llm_limits.py`/`llm-limits.ts` com os números reais de cada free tier.
+
 ### Ainda na fila (ordem a definir com a Fernanda)
-B) enum de planos + teto por plano · C) implementar o calendário · D) aviso de quase-limite de key + dashboard de servidor no `/admin` · E) multi-trilha · F) pipeline conteúdo→rede social.
+B) enum de planos + teto por plano · C) implementar o calendário · E) multi-trilha · F) pipeline conteúdo→rede social.

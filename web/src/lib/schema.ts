@@ -1,6 +1,6 @@
 // Mapeia as tabelas de db/migrations/0001_init.sql. Migrations são do bot — aqui só lê/escreve.
 import {
-  pgTable, uuid, text, bigint, timestamp, integer, boolean, jsonb, date, time,
+  pgTable, uuid, text, bigint, timestamp, integer, boolean, jsonb, date, time, real,
 } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
@@ -70,7 +70,7 @@ export const tasks = pgTable("tasks", {
 
 export const events = pgTable("events", {
   id: uuid("id").primaryKey().defaultRandom(),
-  userId: uuid("user_id").notNull(),
+  userId: uuid("user_id"), // null = evento de sistema (ex: llm:near_limit:<provider>)
   day: date("day").notNull(),
   kind: text("kind").notNull(),
   payload: jsonb("payload").notNull(),
@@ -164,5 +164,31 @@ export const llmUsage = pgTable("llm_usage", {
   fallback: boolean("fallback").notNull(),
   ok: boolean("ok").notNull(),
   status: text("status"),
+  // D1: snapshot dos headers x-ratelimit-* da resposta (nullable — nem todo provedor manda)
+  rlRemainingRequests: integer("rl_remaining_requests"),
+  rlRemainingTokens: bigint("rl_remaining_tokens", { mode: "number" }),
+  rlLimitRequests: integer("rl_limit_requests"),
+  rlLimitTokens: bigint("rl_limit_tokens", { mode: "number" }),
+  rlResetSeconds: real("rl_reset_seconds"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+});
+
+// D2: saúde da VM Oracle — 1 linha só (id=1), o bot faz upsert a cada 60s (bot/vitals.py)
+export const systemVitals = pgTable("system_vitals", {
+  id: integer("id").primaryKey(),
+  cpuLoad1: real("cpu_load_1"),
+  cpuLoad5: real("cpu_load_5"),
+  cpuLoad15: real("cpu_load_15"),
+  memTotalMb: integer("mem_total_mb"),
+  memAvailableMb: integer("mem_available_mb"),
+  swapTotalMb: integer("swap_total_mb"),
+  swapFreeMb: integer("swap_free_mb"),
+  diskTotalGb: real("disk_total_gb"),
+  diskFreeGb: real("disk_free_gb"),
+  services: jsonb("services").notNull(),
+  pgSizeBytes: bigint("pg_size_bytes", { mode: "number" }),
+  lastBackupAt: timestamp("last_backup_at", { withTimezone: true }),
+  lastBackupBytes: bigint("last_backup_bytes", { mode: "number" }),
+  botUptimeSeconds: bigint("bot_uptime_seconds", { mode: "number" }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
 });

@@ -527,13 +527,127 @@ async def record_llm_usage(rows: list[dict]) -> None:
         await con.executemany(
             """INSERT INTO llm_usage
                  (user_id, source, tag, provider, model,
-                  prompt_tokens, completion_tokens, fallback, ok, status)
-               VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10)""",
+                  prompt_tokens, completion_tokens, fallback, ok, status,
+                  rl_remaining_requests, rl_remaining_tokens,
+                  rl_limit_requests, rl_limit_tokens, rl_reset_seconds)
+               VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+                       $11, $12, $13, $14, $15)""",
             [(
                 r.get("user_id"), r.get("source", "bot"), r.get("tag"), r["provider"], r.get("model"),
                 int(r.get("prompt_tokens", 0)), int(r.get("completion_tokens", 0)),
                 bool(r.get("fallback", False)), bool(r.get("ok", True)), r.get("status"),
+                r.get("rl_remaining_requests"), r.get("rl_remaining_tokens"),
+                r.get("rl_limit_requests"), r.get("rl_limit_tokens"), r.get("rl_reset_seconds"),
             ) for r in rows],
+        )
+
+
+# ── D1: pressão nas chaves de LLM (quase-limite) ────────────────────
+async def llm_pressure() -> list[dict]:
+    """Uso por provedor: requests/tokens nas últimas 24h e no último minuto, +
+    o snapshot de header mais recente (última 1h). Rolagem de 24h — aproxima o
+    limite de calendário-dia sem depender do fuso de reset de cada provedor."""
+    async with pool().acquire() as con:
+        rows = await con.fetch(
+            """
+            WITH last_min AS (
+                SELECT provider, count(*) AS c,
+                       coalesce(sum(prompt_tokens + completion_tokens), 0) AS tok
+                FROM llm_usage WHERE created_at > now() - interval '60 seconds'
+                GROUP BY provider
+            ),
+            day AS (
+                SELECT provider, count(*) AS c,
+                       coalesce(sum(prompt_tokens + completion_tokens), 0) AS tok
+                FROM llm_usage WHERE created_at > now() - interval '24 hours'
+                GROUP BY provider
+            ),
+            snap AS (
+                SELECT DISTINCT ON (provider) provider,
+                       rl_remaining_requests, rl_limit_requests,
+                       rl_remaining_tokens, rl_limit_tokens, rl_reset_seconds, created_at
+                FROM llm_usage
+                WHERE created_at > now() - interval '1 hour'
+                  AND (rl_remaining_requests IS NOT NULL OR rl_remaining_tokens IS NOT NULL)
+                ORDER BY provider, created_at DESC
+            )
+            SELECT d.provider,
+                   d.c AS req_day, d.tok AS tok_day,
+                   coalesce(lm.c, 0) AS req_min, coalesce(lm.tok, 0) AS tok_min,
+                   s.rl_remaining_requests, s.rl_limit_requests,
+                   s.rl_remaining_tokens, s.rl_limit_tokens, s.rl_reset_seconds
+            FROM day d
+            LEFT JOIN last_min lm USING (provider)
+            LEFT JOIN snap s USING (provider)
+            """
+        )
+    return [dict(r) for r in rows]
+
+
+async def log_near_limit(provider: str, pct: float, window: str, detail: dict) -> bool:
+    """Grava events(kind='llm:near_limit:<provider>') — no máx 1 por provedor/hora.
+    Retorna True se gravou."""
+    kind = f"llm:near_limit:{provider}"
+    async with pool().acquire() as con:
+        recent = await con.fetchval(
+            "SELECT 1 FROM events WHERE kind = $1 AND created_at > now() - interval '1 hour' LIMIT 1",
+            kind,
+        )
+        if recent:
+            return False
+        payload = {"pct": round(pct, 3), "janela": window,
+                   **{k: detail.get(k) for k in (
+                       "req_day", "tok_day", "req_min", "tok_min",
+                       "rl_remaining_requests", "rl_limit_requests",
+                       "rl_remaining_tokens", "rl_limit_tokens")}}
+        await con.execute(
+            "INSERT INTO events (user_id, day, kind, payload) VALUES (NULL, current_date, $1, $2)",
+            kind, json.dumps(payload, default=str),
+        )
+    return True
+
+
+# ── D2: vitais da VM ───────────────────────────────────────────────
+async def save_vitals(row: dict) -> None:
+    """Upsert da linha única (id=1) de system_vitals. Preenche pg_size_bytes aqui."""
+    async with pool().acquire() as con:
+        try:
+            row = {**row, "pg_size_bytes": await con.fetchval(
+                "SELECT pg_database_size(current_database())")}
+        except Exception:  # noqa: BLE001
+            row = {**row, "pg_size_bytes": row.get("pg_size_bytes")}
+        await con.execute(
+            """
+            INSERT INTO system_vitals AS v (
+                id, cpu_load_1, cpu_load_5, cpu_load_15,
+                mem_total_mb, mem_available_mb, swap_total_mb, swap_free_mb,
+                disk_total_gb, disk_free_gb, services, pg_size_bytes,
+                last_backup_at, last_backup_bytes, bot_uptime_seconds, updated_at)
+            VALUES (1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12, $13, $14, now())
+            ON CONFLICT (id) DO UPDATE SET
+                cpu_load_1 = excluded.cpu_load_1,
+                cpu_load_5 = excluded.cpu_load_5,
+                cpu_load_15 = excluded.cpu_load_15,
+                mem_total_mb = excluded.mem_total_mb,
+                mem_available_mb = excluded.mem_available_mb,
+                swap_total_mb = excluded.swap_total_mb,
+                swap_free_mb = excluded.swap_free_mb,
+                disk_total_gb = excluded.disk_total_gb,
+                disk_free_gb = excluded.disk_free_gb,
+                services = excluded.services,
+                pg_size_bytes = excluded.pg_size_bytes,
+                last_backup_at = excluded.last_backup_at,
+                last_backup_bytes = excluded.last_backup_bytes,
+                bot_uptime_seconds = excluded.bot_uptime_seconds,
+                updated_at = now()
+            """,
+            row.get("cpu_load_1"), row.get("cpu_load_5"), row.get("cpu_load_15"),
+            row.get("mem_total_mb"), row.get("mem_available_mb"),
+            row.get("swap_total_mb"), row.get("swap_free_mb"),
+            row.get("disk_total_gb"), row.get("disk_free_gb"),
+            json.dumps(row.get("services") or {}), row.get("pg_size_bytes"),
+            row.get("last_backup_at"), row.get("last_backup_bytes"),
+            row.get("bot_uptime_seconds"),
         )
 
 
