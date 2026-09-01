@@ -46,3 +46,4 @@ fly deploy
 ## Comandos
 
 `/start` `/hoje` `/jasei` `/skip` `/plano` `/status` `/conteudo` — e texto livre conversa com a treinadora.
+"# Aristotel.IA" 
