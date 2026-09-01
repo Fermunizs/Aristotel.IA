@@ -37,7 +37,7 @@ empurrão + bloqueio de agenda.
 | Tokens em repouso | Cifrados AES-256-GCM, chave no `web.env` | Protege os backups (`pg_dump` gzipado fica na VM) |
 | Escopo Google | `calendar.app.created` | App só enxerga/edita calendários que ele mesmo criou — consentimento mínimo |
 
-## 3. Modelo de dados — migration `db/migrations/0012_calendar.sql`
+## 3. Modelo de dados — migration `db/migrations/0013_calendar.sql`
 
 ```sql
 -- ── multicanal por lembrete ──────────────────────────────────────────
@@ -398,7 +398,7 @@ Página estática, tom honesto e curto:
 
 ## 13. Rollout
 
-1. `0012_calendar.sql` (runner do bot aplica no deploy).
+1. `0013_calendar.sql` (runner do bot aplica no deploy).
 2. Deploy **bot + web juntos** (schema em lockstep — `channel` some).
 3. Fernanda: preenche `web.env`, faz Google Cloud + Azure (§9).
 4. Instalar `aristotelia-calsync.timer` na VM (`systemctl enable --now`).
@@ -409,7 +409,7 @@ Página estática, tom honesto e curto:
 ## 14. Arquivos tocados (resumo)
 
 **Novos**
-- `db/migrations/0012_calendar.sql`
+- `db/migrations/0013_calendar.sql`
 - `web/src/lib/crypto.ts`
 - `web/src/lib/calendar/{provider,google,microsoft,rrule,event-shape,sync}.ts`
 - `web/src/app/api/oauth/[provider]/start/route.ts`

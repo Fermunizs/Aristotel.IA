@@ -47,7 +47,7 @@
 - `web/vitest.config.ts`
 
 **Novos — infra**
-- `db/migrations/0012_calendar.sql`
+- `db/migrations/0013_calendar.sql`
 - `scripts/systemd/aristotelia-calsync.service`
 - `scripts/systemd/aristotelia-calsync.timer`
 
@@ -69,7 +69,7 @@
 ## Task 1: Migration + schema (DB foundations)
 
 **Files:**
-- Create: `db/migrations/0012_calendar.sql`
+- Create: `db/migrations/0013_calendar.sql`
 - Modify: `web/src/lib/schema.ts`
 - Modify: `bot/db.py` (`cleanup_expired`, `get_reminders`)
 
@@ -79,10 +79,10 @@
 
 - [ ] **Step 1: Write the migration**
 
-`db/migrations/0012_calendar.sql` — copiar exatamente o bloco SQL do spec §3 (as 4 partes: `ALTER reminders`, `calendar_connections`, `calendar_events`, `oauth_states`). Prefixar com o comentário de cabeçalho no estilo das outras migrations:
+`db/migrations/0013_calendar.sql` — copiar exatamente o bloco SQL do spec §3 (as 4 partes: `ALTER reminders`, `calendar_connections`, `calendar_events`, `oauth_states`). Prefixar com o comentário de cabeçalho no estilo das outras migrations:
 
 ```sql
--- 0012 — Integração de calendário (Google/Outlook) + lembretes multicanal.
+-- 0013 — Integração de calendário (Google/Outlook) + lembretes multicanal.
 -- reminders.channel (texto único) vira reminders.channels (lista jsonb).
 ```
 
@@ -92,7 +92,7 @@ Se houver Docker local:
 ```bash
 docker run -d --rm --name arist-mig-test -e POSTGRES_PASSWORD=x -p 55432:5432 postgres:16
 sleep 4
-for f in db/migrations/0001_init.sql db/migrations/0002_reminders.sql db/migrations/0003_push.sql db/migrations/0004_history.sql db/migrations/0005_settings.sql db/migrations/0006_coach_tone.sql db/migrations/0007_limits.sql db/migrations/0008_roles_plans.sql db/migrations/0009_content_cache.sql db/migrations/0010_llm_usage.sql db/migrations/0011_review_queue.sql db/migrations/0012_calendar.sql; do
+for f in db/migrations/0001_init.sql db/migrations/0002_reminders.sql db/migrations/0003_push.sql db/migrations/0004_history.sql db/migrations/0005_settings.sql db/migrations/0006_coach_tone.sql db/migrations/0007_limits.sql db/migrations/0008_roles_plans.sql db/migrations/0009_content_cache.sql db/migrations/0010_llm_usage.sql db/migrations/0011_review_queue.sql db/migrations/0013_calendar.sql; do
   echo "== $f =="; PGPASSWORD=x psql -h localhost -p 55432 -U postgres -d postgres -v ON_ERROR_STOP=1 -f "$f" || break
 done
 PGPASSWORD=x psql -h localhost -p 55432 -U postgres -d postgres -c "\d reminders" -c "\d calendar_connections"
@@ -153,8 +153,8 @@ Em `get_reminders`, garantir parse de `channels` (é `jsonb`). Se a função hoj
 
 ```bash
 cd web && npx tsc --noEmit   # vai quebrar em quem usa reminders.channel — OK, as Tasks 3-4 arrumam; se quiser, seguir e só rodar tsc verde no fim da Task 4
-cd .. && git add db/migrations/0012_calendar.sql web/src/lib/schema.ts bot/db.py
-git commit -m "feat(calendar): migration 0012 + schema (channels, calendar_connections/events, oauth_states)"
+cd .. && git add db/migrations/0013_calendar.sql web/src/lib/schema.ts bot/db.py
+git commit -m "feat(calendar): migration 0013 + schema (channels, calendar_connections/events, oauth_states)"
 ```
 
 ---
@@ -1598,7 +1598,7 @@ INTERNAL_SYNC_SECRET=      # openssl rand -hex 32
 - §4: nota de que lembrete agora tem lista de canais (`telegram`/`push`/`agenda`).
 - §6: adicionar `aristotelia-calsync.timer` à lista de unidades da VM + a nota de que o painel agora precisa das chaves de calendário no `web.env` (opcional).
 
-- [ ] **Step 3: `Memória.md`** — entrada com: o que foi feito, migration 0012, as tabelas, o fluxo, **o que falta a Fernanda fazer** (Google Cloud, Azure, preencher `web.env`, instalar o timer), e que o deploy ainda não foi feito.
+- [ ] **Step 3: `Memória.md`** — entrada com: o que foi feito, migration 0013, as tabelas, o fluxo, **o que falta a Fernanda fazer** (Google Cloud, Azure, preencher `web.env`, instalar o timer), e que o deploy ainda não foi feito.
 
 - [ ] **Step 4: rodar tudo**
 
