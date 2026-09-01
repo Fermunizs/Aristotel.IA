@@ -118,7 +118,7 @@ AristotelIA/
 
 ```
 TELEGRAM_TOKEN=...            # do BotFather
-LLM_PROVIDER=gemini,groq,cerebras,sambanova,mistral,github,openrouter   # ordem = prioridade
+LLM_PROVIDER=gemini,cerebras,groq,sambanova,mistral,github,openrouter   # ordem = prioridade
 GEMINI_API_KEY=...            # https://aistudio.google.com/apikey
 GROQ_API_KEY=...              # https://console.groq.com/keys
 CEREBRAS_API_KEY=...          # https://cloud.cerebras.ai
