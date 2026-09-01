@@ -166,6 +166,17 @@ async def deactivate_plan(user_id) -> None:
         await con.execute("UPDATE learning_plans SET active = false WHERE user_id = $1", user_id)
 
 
+async def clear_future_trilha_tasks(user_id) -> None:
+    """Some com tarefas de trilha ainda pendentes (hoje em diante) — a trilha nova traz as dela.
+    Evita a checklist de hoje mostrar o tópico da trilha antiga junto do 'Foco de hoje' novo."""
+    async with pool().acquire() as con:
+        await con.execute(
+            "DELETE FROM tasks WHERE user_id = $1 AND source = 'trilha' "
+            "AND status = 'pending' AND day >= current_date",
+            user_id,
+        )
+
+
 async def update_plan_position(user_id, week: int, day: int) -> None:
     async with pool().acquire() as con:
         await con.execute(
