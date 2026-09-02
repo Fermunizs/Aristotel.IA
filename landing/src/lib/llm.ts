@@ -99,6 +99,7 @@ export async function askJson<T>(system: string, user: string, maxTokens = 700):
       return parseJson(raw) as T;
     } catch (e) {
       last = e;
+      console.error(`[llm] ${p.name} (${p.model}) falhou:`, String(e).slice(0, 300));
     }
   }
   throw new Error(`LLM falhou: ${last}`);
