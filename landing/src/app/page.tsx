@@ -315,12 +315,15 @@ export default function Home() {
             <h2>O que costuma travar antes de começar.</h2>
           </div>
           <div className="faq">
-            {FAQ.map(([q, a]) => (
-              <details key={q}>
-                <summary>{q}</summary>
-                <div className="ans">{a}</div>
-              </details>
-            ))}
+            {FAQ.map(([q, a]) => {
+              const semTg = q === "Não uso Telegram.";
+              return (
+                <details key={q} id={semTg ? "sem-telegram" : undefined} open={semTg || undefined}>
+                  <summary>{q}</summary>
+                  <div className="ans">{a}</div>
+                </details>
+              );
+            })}
           </div>
         </section>
 
@@ -333,7 +336,7 @@ export default function Home() {
             <a className="btn btn-primary" href={TG}>
               Começar no Telegram
             </a>
-            <a className="btn btn-ghost" href={ENTRAR !== TG ? ENTRAR : "#faq"}>
+            <a className="btn btn-ghost" href={ENTRAR !== TG ? ENTRAR : "#sem-telegram"}>
               Não usa Telegram? →
             </a>
           </div>

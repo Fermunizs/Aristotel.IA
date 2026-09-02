@@ -735,4 +735,6 @@ Fernanda: "a opção da pessoa que não tem Telegram não está na landing". Sem
 - CTA final: o botão secundário agora **renderiza sempre** (era `{ENTRAR !== TG && …}`). Rótulo "Não usa Telegram? →". Com `NEXT_PUBLIC_PANEL_URL` → aponta pra `…/entrar`; sem a env var → cai em `#faq` (rola até "Não uso Telegram."), nunca link morto.
 - FAQ "Não uso Telegram.": 1ª frase "Dá sim." → "Dá — e é o mesmo produto."
 
-`tsc --noEmit` + `next build` OK. Deploy = Fernanda (Vercel, push na main). Quando resolver o B05 e setar `NEXT_PUBLIC_PANEL_URL`, o CTA passa a levar direto pro `/entrar` sem tocar em código.
+`tsc --noEmit` + `next build` OK. Commit `72ce1e1`, pushado (origin/main estava 14 commits atrás). Quando resolver o B05 e setar `NEXT_PUBLIC_PANEL_URL`, o CTA passa a levar direto pro `/entrar` sem tocar em código.
+
+**Ajuste (mesma sessão):** Fernanda: "clico em 'não uso telegram' e não dá em nada" — o `#faq` rolava pouco e o item ficava fechado. Agora o FAQ "Não uso Telegram." tem `id="sem-telegram"` + `open` por padrão, e o botão aponta pra `#sem-telegram`. Segue sendo fig leaf: **sem URL estável do painel (B05) não existe pra onde mandar quem não usa Telegram** — o botão só vira signup real quando `NEXT_PUBLIC_PANEL_URL` existir. Blocker de venda nº1 continua sendo os `NEXT_PUBLIC_KIWIFY_*` na Vercel (checkout).
