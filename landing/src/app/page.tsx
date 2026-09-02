@@ -49,13 +49,18 @@ const STEPS = [
 ];
 
 const FAQ = [
-  ["Preciso de cartão?", "Não. O Aprendiz é grátis de verdade e, enquanto a gente valida, os planos pagos ainda nem cobram."],
+  ["Preciso de cartão?", "Pra usar o Aprendiz, não — é grátis de verdade. Só Sábio e Mestre são pagos (Pix, cartão ou boleto pela Kiwify)."],
   ["Não uso Telegram.", "Dá pra usar pelo painel web — trilha, checklist, foco e a conversa com a treinadora. Push no navegador e e-mail estão a caminho."],
   ["E se eu furar um dia?", '"Hoje não" reagenda sem quebrar o streak. Sumir uma semana também não te pune — a trilha congela e espera você voltar.'],
   ["Serve só pra programar?", "O motor é o mesmo pra qualquer coisa que você queira aprender com constância. Hoje o conteúdo é mais forte em tech, que é onde a gente está validando."],
-  ["Quanto vai custar depois?", "O Aprendiz continua grátis. Sábio deve ficar em R$39/mês e Mestre em R$79/mês (com desconto no anual). Quem entra agora como fundador trava um preço menor por 12 meses. Nada é cobrado sem você escolher."],
+  ["Quanto custa?", "O Aprendiz é grátis pra sempre. Sábio R$39/mês, Mestre R$79/mês (ou anual com desconto). Assinatura pela Kiwify, cancela quando quiser."],
   ["E os meus dados?", "Ficam no nosso banco, não são vendidos, e a gente nunca apaga seu histórico. Você pode pedir o export (Sábio e Mestre) ou a exclusão a qualquer momento."],
 ];
+
+// checkout Kiwify por plano — setar em Environment Variables (Vercel).
+// Sem valor, o botão cai no Telegram (a Fernanda onboarda manual).
+const KIWIFY_SABIO = process.env.NEXT_PUBLIC_KIWIFY_SABIO || TG;
+const KIWIFY_MESTRE = process.env.NEXT_PUBLIC_KIWIFY_MESTRE || TG;
 
 type Plan = {
   nome: string;
@@ -63,9 +68,9 @@ type Plan = {
   preco: string;
   precoSub: string;
   destaque?: boolean;
-  badge?: string;
   itens: string[];
   cta: string;
+  href: string;
 };
 
 const PLANS: Plan[] = [
@@ -83,6 +88,7 @@ const PLANS: Plan[] = [
       "Até 5 lembretes agendados · 1 trilha",
     ],
     cta: "Começar no Telegram",
+    href: TG,
   },
   {
     nome: "Sábio",
@@ -90,7 +96,6 @@ const PLANS: Plan[] = [
     preco: "R$39",
     precoSub: "/mês · ou R$290/ano",
     destaque: true,
-    badge: "Em breve · fundador R$29",
     itens: [
       "Tudo do Aprendiz",
       "3 ideias de post por semana (LinkedIn, Instagram ou X) com copy pronta",
@@ -100,14 +105,14 @@ const PLANS: Plan[] = [
       "Export do histórico (CSV / Notion)",
       "Até 15 lembretes agendados",
     ],
-    cta: "Quero ser fundador",
+    cta: "Assinar o Sábio",
+    href: KIWIFY_SABIO,
   },
   {
     nome: "Mestre",
     tagline: "Sem limite. Várias frentes. Você vira referência.",
     preco: "R$79",
     precoSub: "/mês · ou R$590/ano",
-    badge: "Em breve · fundador R$59",
     itens: [
       "Tudo do Sábio",
       "Conversa ilimitada · até 30 lembretes · até 6 trilhas",
@@ -117,7 +122,8 @@ const PLANS: Plan[] = [
       "Pergunta estratégica de carreira por semana — resposta longa e pensada",
       "Trilhas-modelo curadas · parceiro de constância · prioridade quando a fila aperta",
     ],
-    cta: "Quero ser fundador",
+    cta: "Assinar o Mestre",
+    href: KIWIFY_MESTRE,
   },
 ];
 
@@ -251,10 +257,10 @@ export default function Home() {
         <section className="wrap" id="planos">
           <div className="sec-head">
             <p className="eyebrow">Planos</p>
-            <h2>Comece de graça. Pague quando quiser mais.</h2>
+            <h2>Comece de graça. Assine quando quiser mais.</h2>
             <p>
-              Enquanto a Aristótel.IA está em validação, tudo está liberado. Quem entra agora trava o preço de
-              fundador.
+              O Aprendiz é grátis de verdade, pra sempre. Sábio e Mestre são assinatura mensal (ou anual,
+              com desconto) — pagamento seguro pela Kiwify.
             </p>
           </div>
           <div className="plans">
@@ -262,7 +268,6 @@ export default function Home() {
               <article className={`plan fade${pl.destaque ? " pro" : ""}`} key={pl.nome}>
                 <div className="plan-top">
                   <h3>{pl.nome}</h3>
-                  {pl.badge && <span className="badge">{pl.badge}</span>}
                 </div>
                 <p className="foot" style={{ marginTop: "-0.4rem" }}>
                   {pl.tagline}
@@ -275,7 +280,13 @@ export default function Home() {
                     <li key={it}>{it}</li>
                   ))}
                 </ul>
-                <a className={`btn ${pl.destaque ? "btn-primary" : "btn-ghost"}`} href={TG}>
+                <a
+                  className={`btn ${pl.destaque ? "btn-primary" : "btn-ghost"}`}
+                  href={pl.href}
+                  {...(pl.href.startsWith("http") && !pl.href.includes("t.me")
+                    ? { target: "_blank", rel: "noreferrer" }
+                    : {})}
+                >
                   {pl.cta}
                 </a>
               </article>
@@ -289,7 +300,7 @@ export default function Home() {
             </a>
             .
             <br />
-            Preços em avaliação com a primeira turma. <b>O Aprendiz continua grátis de verdade.</b>
+            Cancela quando quiser. O Aprendiz continua grátis de verdade.
           </p>
         </section>
 
