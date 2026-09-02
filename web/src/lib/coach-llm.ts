@@ -9,7 +9,7 @@ type Provider = { name: string; base: string; key: string; model: string };
 const SPECS: Record<string, { base: string; keyEnv: string; modelEnv: string; model: string }> = {
   gemini: {
     base: "https://generativelanguage.googleapis.com/v1beta/openai",
-    keyEnv: "GEMINI_API_KEY", modelEnv: "GEMINI_MODEL", model: "gemini-2.5-flash",
+    keyEnv: "GEMINI_API_KEY", modelEnv: "GEMINI_MODEL", model: "gemini-flash-lite-latest",
   },
   groq: {
     base: "https://api.groq.com/openai/v1",
@@ -38,7 +38,7 @@ const SPECS: Record<string, { base: string; keyEnv: string; modelEnv: string; mo
   },
 };
 
-const ORDER = (process.env.LLM_PROVIDER || "gemini,cerebras,groq,sambanova,mistral,github,openrouter")
+const ORDER = (process.env.LLM_PROVIDER || "groq,gemini,mistral")
   .split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
 
 const CHAIN: Provider[] = ORDER.flatMap((name, i) => {

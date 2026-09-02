@@ -38,7 +38,9 @@ _PROVIDER_SPECS = {
         "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
         "api_key_env": "GEMINI_API_KEY",
         "model_env": "GEMINI_MODEL",
-        "default_model": "gemini-2.5-flash",  # 2.5 tem "thinking"; melhor que 2.0-flash
+        # os nomes datados (gemini-2.5-flash) dão 404 "no longer available to new" em key nova;
+        # usar os aliases -latest. gemini-flash-lite-latest testado OK 2026-09-02.
+        "default_model": "gemini-flash-lite-latest",
     },
     "groq": {
         "base_url": "https://api.groq.com/openai/v1",
@@ -47,6 +49,9 @@ _PROVIDER_SPECS = {
         # alternativas nesta conta: qwen/qwen3.8-27b (PT mais natural), openai/gpt-oss-20b
         "default_model": "openai/gpt-oss-120b",
     },
+    # 2026-09-02: Cerebras e SambaNova passaram a exigir billing (402 Payment required)
+    # com key nova; GitHub Models está em "retirement brownout" (410). Fora da cadeia
+    # padrão até terem plano grátis de novo — specs mantidos p/ religar rápido.
     "cerebras": {
         "base_url": "https://api.cerebras.ai/v1",
         "api_key_env": "CEREBRAS_API_KEY",
@@ -57,7 +62,7 @@ _PROVIDER_SPECS = {
         "base_url": "https://api.sambanova.ai/v1",
         "api_key_env": "SAMBANOVA_API_KEY",
         "model_env": "SAMBANOVA_MODEL",
-        "default_model": "DeepSeek-V3-0324",  # topo do free tier SambaNova; tb: Meta-Llama-3.3-70B-Instruct
+        "default_model": "Meta-Llama-3.3-70B-Instruct",  # DeepSeek-V3-0324 saiu do catálogo
     },
     "mistral": {
         "base_url": "https://api.mistral.ai/v1",
@@ -81,7 +86,7 @@ _PROVIDER_SPECS = {
 
 _order = [
     p.strip().lower()
-    for p in os.getenv("LLM_PROVIDER", "gemini,cerebras,groq,sambanova,mistral,github,openrouter").split(",")
+    for p in os.getenv("LLM_PROVIDER", "groq,gemini,mistral").split(",")
     if p.strip()
 ]
 _forced_model = os.getenv("LLM_MODEL", "").strip()
