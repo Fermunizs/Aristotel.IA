@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { getSession } from "@/lib/session";
-import { getReminders } from "@/lib/reminders";
+import { getReminders, ensureReminders } from "@/lib/reminders";
 import { db } from "@/lib/db";
 import { preferences } from "@/lib/schema";
 import { RemindersEditor } from "@/components/RemindersEditor";
@@ -13,6 +13,8 @@ export const dynamic = "force-dynamic";
 export default async function Lembretes() {
   const { viewing, account } = (await getSession())!;
   const readOnly = account.id !== viewing.id;
+  // auto-cura: usuário ativo que ficou sem lembretes (falha silenciosa no onboarding)
+  if (!readOnly && viewing.status === "active") await ensureReminders(viewing.id);
   const list = await getReminders(viewing.id);
   const [pref] = await db
     .select({ quietStart: preferences.quietStart, quietEnd: preferences.quietEnd })

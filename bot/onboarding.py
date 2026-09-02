@@ -105,12 +105,17 @@ async def _activate(context: ContextTypes.DEFAULT_TYPE, user, plan: dict) -> Non
     """Ativa o usuário: limpa pending, cria lembretes, agenda, manda a boas-vindas."""
     await db.set_pending(user["id"], None)
     await db.set_status(user["id"], "active")
+    # cria e agenda em passos separados: se o agendamento falhar, os lembretes
+    # ainda existem (o painel mostra) e o _resync_tick pega via reminders_dirty.
     try:
         await db.create_default_reminders(user["id"])
+    except Exception:  # noqa: BLE001
+        log.exception("Falha ao criar lembretes de %s", user["id"])
+    try:
         fresh = await db.get_user(user["id"])
         await scheduling.schedule_user(context.application, fresh)
-    except Exception:  # noqa: BLE001 — não deixa o onboarding travar por isso
-        log.exception("Falha ao criar/agendar lembretes de %s", user["id"])
+    except Exception:  # noqa: BLE001
+        log.exception("Falha ao agendar lembretes de %s", user["id"])
 
     w1 = plan["weeks"][0]
     d1 = w1["days"][0]

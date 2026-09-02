@@ -445,6 +445,8 @@ async def create_default_reminders(user_id) -> None:
             "INSERT INTO reminders (user_id, kind, at_time, sort_order) VALUES ($1, $2, $3, $4)",
             [(user_id, k, t, o) for k, t, o in _DEFAULT_REMINDERS],
         )
+        # marca dirty: se schedule_user falhar depois, o _resync_tick ainda agenda
+        await con.execute("UPDATE bot_state SET reminders_dirty = true WHERE user_id = $1", user_id)
 
 
 async def dirty_reminder_users() -> list[asyncpg.Record]:
