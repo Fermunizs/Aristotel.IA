@@ -60,17 +60,23 @@ def _j(v: Any) -> Any:
 # ── usuários ─────────────────────────────────────────────────────────
 async def get_or_create_user(chat_id: int, username: str | None, name: str | None) -> asyncpg.Record:
     async with pool().acquire() as con:
-        row = await con.fetchrow("SELECT id FROM users WHERE telegram_chat_id = $1", chat_id)
-        if row is None:
-            row = await con.fetchrow(
-                """INSERT INTO users (telegram_chat_id, telegram_username, name, last_seen_at)
-                   VALUES ($1, $2, $3, now()) RETURNING id""",
-                chat_id, username, name,
-            )
-            await con.execute("INSERT INTO preferences (user_id) VALUES ($1)", row["id"])
-            await con.execute("INSERT INTO streaks (user_id) VALUES ($1)", row["id"])
-            await con.execute("INSERT INTO bot_state (user_id) VALUES ($1)", row["id"])
-        else:
+        # ON CONFLICT: dois /start quase simultâneos não estouram unique violation
+        row = await con.fetchrow(
+            """INSERT INTO users (telegram_chat_id, telegram_username, name, last_seen_at)
+               VALUES ($1, $2, $3, now())
+               ON CONFLICT (telegram_chat_id) DO NOTHING
+               RETURNING id""",
+            chat_id, username, name,
+        )
+        if row is not None:  # inseriu agora → cria as linhas-filhas (idempotente)
+            await con.execute(
+                "INSERT INTO preferences (user_id) VALUES ($1) ON CONFLICT DO NOTHING", row["id"])
+            await con.execute(
+                "INSERT INTO streaks (user_id) VALUES ($1) ON CONFLICT DO NOTHING", row["id"])
+            await con.execute(
+                "INSERT INTO bot_state (user_id) VALUES ($1) ON CONFLICT DO NOTHING", row["id"])
+        else:  # já existia
+            row = await con.fetchrow("SELECT id FROM users WHERE telegram_chat_id = $1", chat_id)
             await con.execute("UPDATE users SET last_seen_at = now() WHERE id = $1", row["id"])
     return await get_user(row["id"])
 

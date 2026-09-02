@@ -1,4 +1,13 @@
-"""Onboarding no Telegram: 3 perguntas → LLM gera a trilha → usuário fica ativo."""
+"""Onboarding no Telegram: 4 perguntas → LLM gera a trilha → usuário fica ativo.
+
+À prova de bala (ver Backlog.md B05):
+- durante a geração da trilha o pending vai pra step='building' — mensagens nesse
+  estado não disparam outra geração (era o bug que criava planos duplicados);
+- semana que o LLM não consegue gerar vira uma versão mínima do tema, em vez de
+  perder a trilha inteira;
+- falha total agenda um retry automático (Groq free estoura TPM quando vários
+  entram juntos), até 3 tentativas.
+"""
 from __future__ import annotations
 
 import asyncio
@@ -14,31 +23,62 @@ log = logging.getLogger("aristotelia.onboarding")
 
 _LEVELS = {"1": "do zero", "2": "sei o básico", "3": "intermediário, quero aprofundar"}
 _TONES = {"1": "gentil", "2": "equilibrada", "3": "durona"}
+_MAX_BUILD_ATTEMPTS = 3
 ONB_TONE = (
     "Última: como você quer que eu te cobre?\n\n"
     "1 — gentil, no meu ritmo\n2 — equilibrada\n3 — durona, sem passar a mão na cabeça"
 )
 
 
+def _stub_week(n: int, theme: str) -> dict:
+    """Semana mínima quando o LLM não gera — melhor que perder a trilha inteira.
+    O guia diário e o detalhamento sob demanda preenchem o resto depois."""
+    theme = (theme or f"Semana {n}")[:80]
+    return {
+        "n": n,
+        "theme": theme,
+        "days": [{"d": i, "topic": f"{theme} — parte {i}", "goal": ""} for i in range(1, 6)],
+    }
+
+
+async def _gen_week(name: str | None, base: str, themes: list, n: int) -> dict | None:
+    payload = f"{base}\nTemas das 4 semanas: {themes}\nDetalhe a semana {n}, tema: {themes[n - 1]}"
+    wk = await ask_json(prompts.persona(name) + "\n\n" + prompts.TRILHA_SEMANA, payload, max_tokens=2500)
+    days = (wk or {}).get("days")
+    if not days or len(days) < 3:
+        return None
+    return {
+        "n": n,
+        "theme": (wk.get("theme") or themes[n - 1])[:80],
+        "days": [{"d": i + 1, "topic": d["topic"], "goal": d.get("goal", "")}
+                 for i, d in enumerate(days[:5])],
+    }
+
+
 async def build_trilha(name: str | None, goal: str, level: str, minutes: int) -> list | None:
-    """Gera a trilha semana a semana (evita o limite de tokens/min do Groq free)."""
+    """Gera a trilha semana a semana (evita o limite de tokens/min do Groq free).
+
+    Devolve None só se NENHUMA semana saiu (LLM totalmente fora) — aí o chamador
+    agenda retry. Semana isolada que falha vira _stub_week."""
     base = f"Objetivo: {goal}\nNível: {level}\nMinutos por dia: {minutes}"
     plano = await ask_json(prompts.persona(name) + "\n\n" + prompts.TRILHA_PLANO, base, max_tokens=1200)
     themes = (plano or {}).get("themes") or []
     if len(themes) < 4:
         themes = [f"Semana {i}" for i in range(1, 5)]
+
     weeks: list = []
+    real = 0
     for n in range(1, 5):
-        payload = f"{base}\nTemas das 4 semanas: {themes}\nDetalhe a semana {n}, tema: {themes[n - 1]}"
-        wk = await ask_json(prompts.persona(name) + "\n\n" + prompts.TRILHA_SEMANA, payload, max_tokens=2500)
-        days = (wk or {}).get("days")
-        if not days or len(days) < 3:
-            return None
-        weeks.append({"n": n, "theme": (wk.get("theme") or themes[n - 1])[:80],
-                      "days": [{"d": i + 1, "topic": d["topic"], "goal": d.get("goal", "")}
-                               for i, d in enumerate(days[:5])]})
+        wk = await _gen_week(name, base, themes, n)
+        if wk is None:
+            log.warning("build_trilha: semana %d falhou — usando stub do tema", n)
+            wk = _stub_week(n, themes[n - 1])
+        else:
+            real += 1
+        weeks.append(wk)
         await asyncio.sleep(1)  # respeita TPM do Groq free
-    return weeks
+
+    return weeks if real else None
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE, user) -> None:
@@ -52,6 +92,11 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE, user, pendi
     step = pending.get("step")
     answers = pending.get("answers", {})
     chat = user["telegram_chat_id"]
+
+    if step == "building":
+        # trilha sendo gerada agora — não dispara outra geração (era o bug dos planos duplicados)
+        await send_text(context.bot, chat, "⏳ Tô montando tua trilha, chega já.")
+        return
 
     if step == "goal":
         answers["goal"] = text
@@ -75,7 +120,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE, user, pendi
         await _finish(context, user, answers)
 
 
-async def _finish(context: ContextTypes.DEFAULT_TYPE, user, answers: dict) -> None:
+async def _finish(context: ContextTypes.DEFAULT_TYPE, user, answers: dict, attempt: int = 1) -> None:
     chat = user["telegram_chat_id"]
 
     # idempotência: se já tem trilha (retry/duplo /start), só ativa e avisa
@@ -84,25 +129,63 @@ async def _finish(context: ContextTypes.DEFAULT_TYPE, user, answers: dict) -> No
         await _activate(context, user, existing)
         return
 
-    await send_text(context.bot, chat, "🧭 Fechado. Montando sua trilha... (uns segundos)")
+    # trava: qualquer mensagem daqui pra frente cai no ramo step='building' do handle
+    await db.set_pending(user["id"], {"type": "onboarding", "step": "building", "answers": answers})
+
+    if attempt == 1:
+        await send_text(context.bot, chat, "🧭 Fechado. Montando sua trilha... (uns segundos)")
     usage.set_context(user["id"], "trilha")
-    weeks = await build_trilha(user["name"], answers["goal"], answers["level"], answers["minutes"])
+
+    try:
+        weeks = await build_trilha(user["name"], answers["goal"], answers["level"], answers["minutes"])
+    except Exception:  # noqa: BLE001
+        log.exception("build_trilha explodiu (tentativa %d) p/ %s", attempt, user["id"])
+        weeks = None
+
     if not weeks:
-        await send_text(context.bot, chat,
-                        "Tive um problema pra gerar a trilha agora. Manda /start de novo em 1 minuto.")
+        await _schedule_retry(context, user, answers, attempt)
         return
 
     await db.create_plan(user["id"], answers["goal"], answers["level"], weeks)
-    await db.clear_history(user["id"])  # trilha nova → conversa começa limpa (não mistura com a antiga)
-    await db.clear_future_trilha_tasks(user["id"])  # some com a checklist de trilha da trilha antiga
+    await db.clear_history(user["id"])  # trilha nova → conversa começa limpa
+    await db.clear_future_trilha_tasks(user["id"])  # some com a checklist da trilha antiga
     await db.save_prefs(user["id"], minutes_per_day=answers["minutes"],
                         coach_tone=answers.get("tone", "equilibrada"))
     plan = await db.get_plan(user["id"])
     await _activate(context, user, plan)
 
 
+async def _schedule_retry(context: ContextTypes.DEFAULT_TYPE, user, answers: dict, attempt: int) -> None:
+    chat = user["telegram_chat_id"]
+    if attempt >= _MAX_BUILD_ATTEMPTS or context.job_queue is None:
+        # volta pro step 'tone': a próxima mensagem dela retenta na hora
+        await db.set_pending(user["id"], {"type": "onboarding", "step": "tone", "answers": answers})
+        await send_text(context.bot, chat,
+                        "O gerador de trilha tá congestionado agora. Me manda qualquer mensagem "
+                        "daqui a alguns minutos que eu tento de novo (ou /recomecar).")
+        return
+
+    delay = 60 * attempt
+    await send_text(context.bot, chat,
+                    f"Tô com fila pra gerar tua trilha. Tento de novo automático em ~{delay // 60} min.")
+    context.job_queue.run_once(
+        _retry_job, delay,
+        data={"user_id": user["id"], "answers": answers, "attempt": attempt + 1},
+        name=f"onb-retry-{user['id']}",
+    )
+
+
+async def _retry_job(context: ContextTypes.DEFAULT_TYPE) -> None:
+    d = context.job.data
+    user = await db.get_user(d["user_id"])
+    if user is None or user["status"] == "active":
+        return
+    await _finish(context, user, d["answers"], attempt=d["attempt"])
+
+
 async def _activate(context: ContextTypes.DEFAULT_TYPE, user, plan: dict) -> None:
     """Ativa o usuário: limpa pending, cria lembretes, agenda, manda a boas-vindas."""
+    already_active = user["status"] == "active"
     await db.set_pending(user["id"], None)
     await db.set_status(user["id"], "active")
     # cria e agenda em passos separados: se o agendamento falhar, os lembretes
@@ -116,6 +199,9 @@ async def _activate(context: ContextTypes.DEFAULT_TYPE, user, plan: dict) -> Non
         await scheduling.schedule_user(context.application, fresh)
     except Exception:  # noqa: BLE001
         log.exception("Falha ao agendar lembretes de %s", user["id"])
+
+    if already_active:
+        return  # re-entrada (duplo /start já ativo) — não repete a boas-vindas
 
     w1 = plan["weeks"][0]
     d1 = w1["days"][0]
