@@ -131,9 +131,10 @@ GEMINI_MODEL= / GROQ_MODEL= / ...  # opcional, modelo por provedor
 TZ=America/Sao_Paulo
 ```
 
-**Cadeia de LLM** (`bot/config.py::_PROVIDER_SPECS`, espelhada em `web/src/lib/coach-llm.ts` e `landing/src/lib/llm.ts`): 7 provedores OpenAI-compat. Só entram na cadeia os que têm key; a ordem vem de `LLM_PROVIDER`. Se o 1º estoura rate limit / cai, `llm.py` passa pro próximo (concorrência e cooldown por-provedor). Adicionar provedor = 1 linha em `_PROVIDER_SPECS` (base_url + env da key) + a key no `.env`.
-Modelos padrão: Gemini → `gemini-2.5-flash` · Groq → `openai/gpt-oss-120b` (reasoning_effort=low) · Cerebras → `gpt-oss-120b` · SambaNova → `Meta-Llama-3.3-70B-Instruct` · Mistral → `mistral-small-latest` · GitHub Models → `openai/gpt-4o-mini` · OpenRouter → `meta-llama/llama-3.3-70b-instruct:free`.
-Obs.: a conta Groq da Fernanda só expõe alguns modelos (sem Llama 3.3/4). Conferir com `GET /openai/v1/models`.
+**Cadeia de LLM** (`bot/config.py::_PROVIDER_SPECS`, espelhada em `web/src/lib/coach-llm.ts` e `landing/src/lib/llm.ts`): provedores OpenAI-compat. Só entram na cadeia os que têm key; a ordem vem de `LLM_PROVIDER`. Se o 1º estoura rate limit / cai, `llm.py` passa pro próximo (concorrência e cooldown por-provedor). Adicionar provedor = 1 linha em `_PROVIDER_SPECS` (base_url + env da key) + a key no `.env`.
+**Cadeia ativa (2026-09-02, testada ponta a ponta na VM):** `LLM_PROVIDER=groq,gemini,mistral`. Groq → `openai/gpt-oss-120b` (reasoning_effort=low, primário) · Gemini → `gemini-flash-lite-latest` · Mistral → `mistral-small-latest`.
+Fora da cadeia (specs mantidos p/ religar): **Cerebras** e **SambaNova** passaram a exigir billing (402 Payment required em key nova); **GitHub Models** em retirement brownout (410); **OpenRouter** sem key. Se algum voltar a ter free tier, é só pôr a key + o nome em `LLM_PROVIDER`.
+Obs.: a conta Groq da Fernanda só expõe alguns modelos (sem Llama 3.3/4). Nomes datados do Gemini (`gemini-2.5-flash`) dão 404 "no longer available to new" em key nova — usar os aliases `-latest`.
 
 Se o LLM falhar, `llm.py` usa um fallback local (pool de frases) para o bot nunca ficar mudo.
 
@@ -227,10 +228,6 @@ Editar à mão é seguro. `advance_week` (domingo) incrementa `current.week`; `d
 
 ## 9. Pendências / próximos passos
 
-- [x] Groq no `.env`.
-- [x] Deploy na Oracle Cloud (VM `aristotelia`, systemd, 24/7, custo US$0).
-- [ ] Fernanda: `/start` no bot no Telegram (grava o `chat_id` em `~/aristotelia/data/progress.json` no VM — sem isso os agendamentos não enviam).
-- [ ] Validar cada job no uso real (primeiro ciclo de 24h).
-- [ ] Popular `learning_plan.json` com mais semanas (hoje tem 4).
-- [ ] Ajustar horários/tom depois do primeiro dia real de uso.
-- [ ] (Opcional) trocar modelo para `qwen/qwen3.8-27b` se o PT do gpt-oss não agradar.
+**Backlog completo, priorizado e com IDs estáveis: `Backlog.md` na raiz.** É a fonte de verdade das tarefas em aberto — consolida o Raio-X (F01–F24), a fila da `Memória.md` e as pendências antigas daqui.
+
+Estado atual (2026-09-02): Fase 1+2 no ar (multiusuário, painel, lembretes, push, trilha adaptativa, landing na Vercel). Os 4 críticos do Raio-X resolvidos. Cadeia de LLM real = `groq,gemini,mistral`. Foco: confiabilidade (P0: domínio próprio, backup off-site) + preparar a validação de 20–30 pessoas (P1). Cobrança adiada.
