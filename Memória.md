@@ -625,3 +625,30 @@ Fernanda: "vamos estruturar a plataforma pois está uma bagunça de tarefas e va
 - **Falta a Fernanda:** pôr `GEMINI_API_KEY`/`MISTRAL_API_KEY` + `LLM_PROVIDER`/`GEMINI_MODEL` na **Vercel** (landing) e redeploy. Rotacionar as keys quando sair da correria (passaram pelo chat).
 
 **Próximo:** montar o `Backlog.md` (fonte única, IDs estáveis) consolidando Raio-X F01–F24 + fila da Memória, priorizado pra "convidar gente + confiabilidade". Depois atacar P0 (domínio próprio, backup off-site).
+
+## 2026-09-02 (continuação) — `Backlog.md` criado + P1 B05/B06/B07
+
+Fernanda: "pode mandar ver em tudo que for importante para colocarmos para rodar". Domínio ela não consegue agora (B01 fica parado).
+
+**`Backlog.md` na raiz** — fonte única, IDs `B01`–`B20`, P0–P4. `CLAUDE.md §9` aponta pra lá. Commits `044b0ac` / `b4ecd61`. Branch `master` órfã apagada.
+
+**B05 — onboarding à prova de bala** (commit `ea8fd72`, deployado):
+- Bug que quebrou 2x: durante os ~20s de geração da trilha, `pending` seguia em `step=tone` → cada mensagem da pessoa disparava outra `build_trilha` (5 chamadas de LLM + `learning_plans` duplicados).
+- `_finish` marca `pending step='building'` imediatamente; mensagem nesse estado só responde "tô montando" e não regera.
+- `_stub_week(tema)` — semana que o LLM não gera vira versão mínima do tema; `build_trilha` só devolve `None` se NENHUMA semana saiu.
+- `_retry_job` — falha total agenda retry automático (60s, 120s), até 3x; esgotou → volta pro `step=tone`.
+- `db.get_or_create_user`: `INSERT ... ON CONFLICT (telegram_chat_id) DO NOTHING` (duplo `/start` não estoura mais unique violation).
+- `_activate` não repete a boas-vindas em re-entrada.
+- `scripts/check_onboarding.py` — 5 asserções da degradação, sem DB/LLM real. Passa local e na VM.
+
+**B06 — página de retenção** (commit `ae78316`, deployado):
+- `/admin/retencao` (superadmin): D1/D7/D30, funil da trilha (chega na semana 2), tarefa concluída/dia (14d), lista "sumiram" (ativos sem engajamento 3+ dias).
+- `retencao()` em `web/src/lib/queries.ts` — "dia engajado" = `events kind IN (quiz, quiz_reforco, review, desafio, foco, jasei, skip, msg:chat)` OU `tasks.status='done'`. Mensagem que o bot MANDA não conta.
+- Cores comparam com os alvos do `Produto.md §8`. Hoje: 3 contas, todas <7 dias (D7/D30 mostram "—").
+- SQL validado direto no Postgres de produção antes do deploy.
+
+**B07 — telas de erro + gate de tipos** (commit `74e5ba6`, deployado):
+- `error.tsx` / `global-error.tsx` / `not-found.tsx` com a identidade (antes: erro de runtime = tela branca). 404 custom confirmado em prod.
+- `scripts/deploy-web.sh` roda `tsc --noEmit` e **aborta** se falhar, antes do `next build`. `ignoreBuildErrors` continua (segfault do worker no Node 24/Win) mas a checagem virou obrigatória no deploy.
+
+**Ainda na fila:** P0 B01 (domínio — Fernanda) · B02 (bucket Oracle — Fernanda) · B04 (keys na Vercel — Fernanda). P2: B09 persona enxuta, B10 N+1, B11 calibrar limites de LLM.

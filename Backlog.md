@@ -4,8 +4,9 @@
 > Toda sessão: pegar o item de maior prioridade ainda aberto, fazer, mover pra "Feito" com a data e o commit.
 > IDs `B##` são estáveis — não renumerar. Referências `F##` apontam pro Raio-X (artifact `33f47653`).
 
-**Última revisão:** 2026-09-02
+**Última revisão:** 2026-09-02 (B05, B06, B07 feitos e deployados)
 **Foco atual (decidido com a Fernanda):** convidar mais gente + confiabilidade do que está no ar. **Cobrança está adiada** (P4).
+**Próximo:** P0 (B01/B02 dependem da Fernanda) · P2 B09/B10/B11.
 
 | Prioridade | Significado |
 |---|---|
@@ -45,20 +46,18 @@ A cadeia `groq,gemini,mistral` já está ativa e testada **na VM** (bot + painel
 Sem isso o widget "monte metade da trilha" só tem o Groq de rede.
 **Depende de:** Fernanda (Vercel). Rotacionar as keys depois (passaram pelo chat).
 
-### B05 · Onboarding à prova de bala — `M` — refs F13
-Duas vezes na vida real (namorado da Fernanda) o onboarding quebrou no meio: `_finish` abortava depois de gerar a trilha → usuário `status='onboarding'`, 0 lembretes, `pending` travado, e **cada mensagem seguinte regerava a trilha** (planos duplicados). `_finish` já ficou idempotente, mas a geração semana-a-semana ainda pode falhar no meio e deixar trilha parcial.
-**Fazer:** (a) transação/checkpoint na geração da trilha — semana que falha não deixa plano meio-pronto ativo; (b) teste ponta-a-ponta de um usuário **novo de verdade** (nunca foi feito sem bug — a Fernanda e o namorado entraram por backfill/recuperação manual); (c) tela/mensagem clara de "deu ruim, manda /recomecar" em vez de loop silencioso.
+### ~~B05 · Onboarding à prova de bala~~ — FEITO 2026-09-02 (commit `ea8fd72`) — refs F13
+Trava de geração (`step='building'` → não regera), `_stub_week` pra semana parcial, `_retry_job` automático (até 3x), `get_or_create_user` com `ON CONFLICT`, boas-vindas não repete. `scripts/check_onboarding.py` cobre a degradação. Deployado.
+**Ainda vale:** teste ponta-a-ponta de um usuário novo de verdade (a Fernanda pode pedir pra alguém entrar e observar).
 
-### B06 · Instrumentação de retenção — `M` — refs F06
-Zero medição hoje. `Produto.md §8` define as métricas-alvo (D1/D7/D30, % tarefa concluída/dia, % que chega na semana 2, "pagaria?") mas nada calcula isso. Sem isso a validação de 30 dias não mede nada.
-**Fazer:** view/consulta de coorte a partir de `events` + `tasks` + `streaks` → página `/admin/retencao` (ou seção em `/admin`): retenção por coorte de signup, tarefa/dia, funil da trilha. Reusar o padrão de `/admin/consumo`.
+### ~~B06 · Instrumentação de retenção~~ — FEITO 2026-09-02 (commit `ae78316`) — refs F06
+`/admin/retencao` (superadmin): D1/D7/D30, funil da trilha (chega na semana 2), tarefa concluída/dia (14d), lista de "sumiram" (ativos sem engajamento 3+ dias). `retencao()` em `queries.ts`. Cores vs. os alvos do `Produto.md §8`.
 
-### B07 · Telas de erro no painel + build trava em erro de tipo — `P` — refs F14
-`next.config` tem `typescript.ignoreBuildErrors` (posto pra contornar segfault do worker de tipos em Node 24/Win). O `tsc --noEmit` roda à parte, mas o build não protege. E não há `error.tsx` / `not-found.tsx` — erro de runtime no painel = tela branca.
-**Fazer:** `error.tsx` + `global-error.tsx` + `not-found.tsx` com a identidade visual; investigar se dá pra tirar o `ignoreBuildErrors` (talvez só precise Node 20 no build, que o `deploy-web.sh` já usa).
+### ~~B07 · Telas de erro no painel + build trava em erro de tipo~~ — FEITO 2026-09-02 (commit `74e5ba6`) — refs F14
+`error.tsx` / `global-error.tsx` / `not-found.tsx` com a identidade. `deploy-web.sh` agora roda `tsc --noEmit` e aborta se falhar (o `ignoreBuildErrors` continua por causa do segfault do worker no Node 24/Win, mas a checagem virou obrigatória no deploy).
 
 ### B08 · Confirmar quiet hours + /pausar no uso real — `P` — refs F07, F08
-Os dois foram implementados e deployados (2026-09-01) mas nunca confirmados por uso real. Checar: lembrete dentro da janela de silêncio não dispara; `/pausar` tira todos os jobs e `/voltar` re-agenda; streak não quebra na pausa.
+Os dois foram implementados e deployados (2026-09-01) mas nunca confirmados por uso real. Checar: lembrete dentro da janela de silêncio não dispara; `/pausar` tira todos os jobs e `/voltar` re-agenda; streak não quebra na pausa. **Ação da Fernanda** (uso real) ou um teste dirigido.
 
 ---
 
@@ -140,4 +139,7 @@ A landing já mostra Kiwify, mas o banco é `plan ∈ {free, pro, unlimited}` e 
 | F18 | Trilha adaptativa (erra quiz → fila de revisão, `0011`) | 2026-09-01 |
 | F19 | Landing page standalone na Vercel + widget da trilha | 2026-09-01 |
 | — | Lote D: aviso de quase-limite das keys + `/admin/servidor` (`0012`) | 2026-09-01 |
-| — | Cadeia de LLM real `groq,gemini,mistral` testada na VM (commit `6e7a2e2`) | 2026-09-02 |
+| — | Cadeia de LLM real `groq,gemini,mistral` testada na VM (`6e7a2e2`) | 2026-09-02 |
+| B05 | Onboarding à prova de bala (trava de geração + retry + semana parcial, `ea8fd72`) | 2026-09-02 |
+| B06 | Página de retenção `/admin/retencao` (`ae78316`) | 2026-09-02 |
+| B07 | Telas de erro + gate de tipos no deploy (`74e5ba6`) | 2026-09-02 |
