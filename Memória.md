@@ -725,3 +725,14 @@ Spec: `docs/superpowers/specs/2026-09-02-acesso-web-e-kiwify-design.md`.
 **Commits:** `ea82439` (feature) + `abc310d` (fix origin + retry). Migration 0014 aplicada. Bot + painel deployados.
 
 **Falta a Fernanda:** `NEXT_PUBLIC_PANEL_URL` + `NEXT_PUBLIC_KIWIFY_SABIO/MESTRE` na Vercel · `KIWIFY_WEBHOOK_TOKEN` + `KIWIFY_PRODUCT_SABIO/MESTRE` no `web.env` da VM · configurar o webhook no painel do Kiwify (`${PANEL}/api/webhook/kiwify` + eventos). Google OAuth = B24 (fase 2).
+
+## 2026-09-02 (continuação) — LP: caminho "sem Telegram" mais visível
+
+Fernanda: "a opção da pessoa que não tem Telegram não está na landing". Sem URL estável do painel ainda (B05), então mudança mínima e sem link quebrado no ar.
+
+**`landing/src/app/page.tsx`:**
+- Hero lede: `+` "Não usa? Cria a conta direto no painel."
+- CTA final: o botão secundário agora **renderiza sempre** (era `{ENTRAR !== TG && …}`). Rótulo "Não usa Telegram? →". Com `NEXT_PUBLIC_PANEL_URL` → aponta pra `…/entrar`; sem a env var → cai em `#faq` (rola até "Não uso Telegram."), nunca link morto.
+- FAQ "Não uso Telegram.": 1ª frase "Dá sim." → "Dá — e é o mesmo produto."
+
+`tsc --noEmit` + `next build` OK. Deploy = Fernanda (Vercel, push na main). Quando resolver o B05 e setar `NEXT_PUBLIC_PANEL_URL`, o CTA passa a levar direto pro `/entrar` sem tocar em código.

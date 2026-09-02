@@ -53,7 +53,7 @@ const STEPS = [
 
 const FAQ = [
   ["Preciso de cartão?", "Pra usar o Aprendiz, não — é grátis de verdade. Só Sábio e Mestre são pagos (Pix, cartão ou boleto pela Kiwify)."],
-  ["Não uso Telegram.", "Dá sim. Você cria a conta no painel, responde 4 perguntas e a trilha nasce ali na hora. A treinadora te chama por notificação do navegador (instala o painel como app no celular). Sem senha — você salva um link pessoal pra voltar."],
+  ["Não uso Telegram.", "Dá — e é o mesmo produto. Você cria a conta no painel, responde 4 perguntas e a trilha nasce ali na hora. A treinadora te chama por notificação do navegador (instala o painel como app no celular). Sem senha — você salva um link pessoal pra voltar."],
   ["E se eu furar um dia?", '"Hoje não" reagenda sem quebrar o streak. Sumir uma semana também não te pune — a trilha congela e espera você voltar.'],
   ["Serve só pra programar?", "O motor é o mesmo pra qualquer coisa que você queira aprender com constância. Hoje o conteúdo é mais forte em tech, que é onde a gente está validando."],
   ["Quanto custa?", "O Aprendiz é grátis pra sempre. Sábio R$39/mês, Mestre R$79/mês (ou anual com desconto). Assinatura pela Kiwify, cancela quando quiser."],
@@ -157,6 +157,7 @@ export default function Home() {
               <p className="lede">
                 A Aristótel.IA vira sua treinadora: monta o plano, decide o que você faz hoje, te cobra,
                 corrige a rota e te mostra que você está evoluindo. No Telegram — onde você já está.
+                Não usa? Cria a conta direto no painel.
               </p>
               <p className="note">Grátis pra usar. Sem cartão. Monte metade da sua trilha agora mesmo:</p>
               <TrilhaPreview />
@@ -332,11 +333,9 @@ export default function Home() {
             <a className="btn btn-primary" href={TG}>
               Começar no Telegram
             </a>
-            {ENTRAR !== TG && (
-              <a className="btn btn-ghost" href={ENTRAR}>
-                ou entrar pelo painel →
-              </a>
-            )}
+            <a className="btn btn-ghost" href={ENTRAR !== TG ? ENTRAR : "#faq"}>
+              Não usa Telegram? →
+            </a>
           </div>
         </section>
       </main>
