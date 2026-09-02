@@ -6,7 +6,7 @@ const fraunces = Fraunces({ subsets: ["latin"], weight: ["400", "500", "600"], v
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const spaceMono = Space_Mono({ subsets: ["latin"], weight: ["400", "700"], variable: "--font-space-mono" });
 
-const SITE = "https://aristotelia.vercel.app"; // ajustar quando o domínio final entrar
+const SITE = "https://aristotel-ia.vercel.app"; // domínio Vercel; trocar quando entrar o final
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE),
