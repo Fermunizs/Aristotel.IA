@@ -691,3 +691,37 @@ Fernanda: "a estrutura do banco está tudo certo? tenho medo de bagunçar as inf
 Commit `fd504aa`, deployado (bot aplicou a migration no restart, 3 índices confirmados).
 
 **Veredito pra Fernanda:** o banco NÃO mistura dados entre usuários e aguenta crescer. O que fica pra depois é só otimização (partição de `events`, tirar o `detail` do JSONB) — nada quebra sem isso.
+
+## 2026-09-02 (continuação) — acesso sem Telegram (B23): cadastro web + onboarding no painel + push + webhook Kiwify
+
+Fernanda: "quem não tem Telegram como acessa o painel? a LP fala só de Telegram". Depois: "faça o que achar melhor e seguro" + "preciso que já suba na LP com o checkout, senão qualquer um pega os planos só dando barra".
+
+**Decisões:** Plano B (cadastro web sem OAuth — Google fica pra fase 2, precisa Google Cloud + domínio). Login por **link pessoal** (bearer 256 bits). Lembrete via **push**. Webhook do Kiwify casando por **e-mail**. NÃO renomear os planos agora.
+
+Spec: `docs/superpowers/specs/2026-09-02-acesso-web-e-kiwify-design.md`.
+
+**Migration `0014_web_auth.sql`:** `users` +`email`/`google_sub`/`avatar_url`/`signup_via`/`login_token`/`login_token_at` (tudo nullable — Telegram não quebra). Tabelas `pending_upgrades` (pagou antes de ter conta) e `kiwify_events` (log cru de todo webhook).
+
+**Painel:**
+- `/entrar` ganha "Não tenho Telegram" → nome + e-mail → `POST /api/signup/web` (`webauth.ts::createWebUser`) → cria user `signup_via='web' status='onboarding'`, linhas-filhas, aplica `pending_upgrades`, `createSession`.
+- **Link pessoal:** `GET /entrar/link?k=<token>` (`link/route.ts`) troca o token por cookie de sessão e redireciona pra `/` ou `/onboarding` **sem o `?k=`** na URL. `/api/me/link` GET mostra / POST rotaciona.
+- `/onboarding` (`OnboardingFlow.tsx`) — 4 telas (objetivo/nível/minutos/tom). `POST /api/onboarding` → `trilha-build.ts` (porta de `bot/onboarding.py::build_trilha` — `groqJson` ×5, `stubWeek` pra semana que falha, **1 retry com mais tokens** antes do stub) → grava trilha (transacional), prefs, **7 lembretes `channel='push'`**, `reminders_dirty=true`, `status='active'`. Tela final: salvar o link + `PushToggle`.
+- `(app)/layout.tsx`: usuário `status='onboarding'` (não impersonado) → redirect `/onboarding`.
+- `origin.ts::publicOrigin(req)` — atrás do túnel o Node vê `localhost:3000`; usa `x-forwarded-host`. (o link pessoal saía como `https://localhost:3000/...` — corrigido.)
+
+**Bot (agenda quem não tem Telegram):**
+- `db._REACHABLE` = tem `telegram_chat_id` OU tem linha em `push_subscriptions`. `active_users()`, `dirty_reminder_users()`, `scheduling.schedule_user()` usam. `db.has_push()` novo.
+- `jobs._ctx`: não exige mais `telegram_chat_id` — devolve `chat=None` pra usuário só-push. `jobs._deliver`: `channel=='push'` OU `chat` None → manda push. `weekly.py`: 4 `send_text` diretos → `_deliver`. `main._outbox_tick`: pula (marca enviada) se `telegram_chat_id` NULL.
+- **Gap conhecido (B25):** quiz/desafio/review mandam a notificação mas o `pending` só é consumido por msg de Telegram. Usuário só-push recebe, não responde fácil. Não crasha.
+
+**Webhook Kiwify** (`web/src/app/api/webhook/kiwify/route.ts`):
+- Lê o corpo **cru**, verifica HMAC-SHA1 com `KIWIFY_WEBHOOK_TOKEN` (query `?signature=`). Grava **sempre** em `kiwify_events` (raw + parsed). Extração tolerante de e-mail / evento / produto (doc do Kiwify incompleta — a 1ª compra real calibra).
+- Aprovada/renovada → `users.plan` (por produto: `KIWIFY_PRODUCT_SABIO`→pro, `_MESTRE`→unlimited) ou `pending_upgrades` se não achar o e-mail. Cancelada/reembolso/chargeback → `free`. Sempre responde 200 (não revela).
+
+**LP** (`landing/src/app/page.tsx`): FAQ "Não uso Telegram" agora é verdade + CTA secundário "entrar pelo painel" (`NEXT_PUBLIC_PANEL_URL`).
+
+**Testado em produção ponta a ponta:** signup → `/` redireciona pra `/onboarding` → trilha gerada (4 semanas reais, 5 chamadas Groq ok) → link pessoal com host certo → abrir o link loga e limpa o `?k=` → link inválido → `/entrar?e=link` → webhook sem assinatura loga `ok=false` e responde 200. Usuários de teste apagados.
+
+**Commits:** `ea82439` (feature) + `abc310d` (fix origin + retry). Migration 0014 aplicada. Bot + painel deployados.
+
+**Falta a Fernanda:** `NEXT_PUBLIC_PANEL_URL` + `NEXT_PUBLIC_KIWIFY_SABIO/MESTRE` na Vercel · `KIWIFY_WEBHOOK_TOKEN` + `KIWIFY_PRODUCT_SABIO/MESTRE` no `web.env` da VM · configurar o webhook no painel do Kiwify (`${PANEL}/api/webhook/kiwify` + eventos). Google OAuth = B24 (fase 2).

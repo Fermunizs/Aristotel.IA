@@ -110,6 +110,16 @@ AristotelIA/
 | `/conteudo`  | Abre a captura de ideia de conteúdo manualmente. |
 | texto livre  | Se não houver interação pendente, conversa com a treinadora. |
 
+### Acesso ao painel (3 caminhos)
+
+1. **Telegram:** `/painel` no bot → código de 6 dígitos → `/entrar`.
+2. **Sem Telegram (migration 0014):** `/entrar` → "Não tenho Telegram" → nome + e-mail → conta criada, faz o onboarding no próprio painel (`/onboarding`), lembretes vão por **push** (PWA). Volta com um **link pessoal** (`/entrar/link?k=<token>`, token de 256 bits trocado por cookie; `/api/me/link` mostra/rotaciona). O e-mail é a âncora do Kiwify — não é enviado nada nele.
+3. **Superadmin:** `/admin/entrar` + `ADMIN_PASSWORD`.
+
+Usuário só-push: o bot agenda igual (`db._REACHABLE` = tem `telegram_chat_id` OU `push_subscriptions`); `jobs._deliver` cai em push quando não há `chat_id`. Quiz/desafio interativo ainda é fraco pra esse caso (B25).
+
+**Webhook Kiwify:** `POST /api/webhook/kiwify` — HMAC-SHA1 do corpo cru (`?signature=` com `KIWIFY_WEBHOOK_TOKEN`), casa por e-mail → `users.plan` (ou `pending_upgrades`). Tudo logado em `kiwify_events`. Env: `KIWIFY_WEBHOOK_TOKEN`, `KIWIFY_PRODUCT_SABIO`/`_MESTRE` (product ids). Google OAuth = fase 2 (`users.google_sub` já existe).
+
 ---
 
 ## 5. Configuração / segredos

@@ -4,9 +4,9 @@
 > Toda sessão: pegar o item de maior prioridade ainda aberto, fazer, mover pra "Feito" com a data e o commit.
 > IDs `B##` são estáveis — não renumerar. Referências `F##` apontam pro Raio-X (artifact `33f47653`).
 
-**Última revisão:** 2026-09-02 (B05, B06, B07 feitos e deployados)
-**Foco atual (decidido com a Fernanda):** convidar mais gente + confiabilidade do que está no ar. **Cobrança está adiada** (P4).
-**Próximo:** P0 (B01/B02 dependem da Fernanda) · P2 B09/B10/B11.
+**Última revisão:** 2026-09-02 (B05, B06, B07, B22, B23 feitos e deployados)
+**Foco atual (decidido com a Fernanda):** convidar mais gente + confiabilidade do que está no ar.
+**Próximo:** ações da Fernanda (domínio, Kiwify, Vercel) · P2 B09/B10/B11.
 
 | Prioridade | Significado |
 |---|---|
@@ -118,10 +118,16 @@ Hoje o Postgres roda num container (`arist-pg`); `dockerd` + `containerd` custam
 
 ---
 
-## P4 — Cobrança (adiado)
+## P4 — Cobrança
 
-### B20 · Planos + enforcement + webhook Kiwify — `G` — refs Memória 2026-09-01
-A landing já mostra Kiwify, mas o banco é `plan ∈ {free, pro, unlimited}` e os planos decididos são **Aprendiz / Sábio / Mestre / Turma**. Falta: migration do enum + mapa de `LIMIT` por tier + webhook de pagamento Kiwify → seta `users.plan` + enforcement real dos limites. Só ligar quando ≥3 métricas de `Produto.md §8` no verde.
+### B20 · Renomear planos + enforcement completo — `M` — refs Memória 2026-09-01
+O **webhook do Kiwify já foi feito** (B23, casa por e-mail → `users.plan`). Falta: renomear o enum (`free/pro/unlimited` → `aprendiz/sabio/mestre`) + migration + revisar os mapas de `LIMIT` por tier. As features pagas em si (multi-trilha, pipeline de conteúdo, boletim) são B13/B15/B17 e não existem — não há o que gatear até elas existirem. Ligar cobrança de verdade quando ≥3 métricas de `Produto.md §8` no verde.
+
+### B24 · Google OAuth (fase 2 do acesso web) — `M`
+"Entrar com Google" por cima do link pessoal — tira o risco do bearer pra quem quiser. Precisa: projeto Google Cloud (consent screen + credencial Web) + `GOOGLE_CLIENT_ID/SECRET` + redirect URI estável (→ domínio, B01). Coluna `users.google_sub` já existe (migration 0014).
+
+### B25 · Quiz/desafio interativo pra usuário só-push — `P`
+Hoje o quiz/desafio/review manda a notificação mas o `pending` só é consumido por mensagem de Telegram. Usuário só-painel recebe mas não responde fácil. Precisa de uma tela no painel pra responder o quiz do dia (ou tratar como só-leitura + registrar via checklist).
 
 ---
 
@@ -129,11 +135,12 @@ A landing já mostra Kiwify, mas o banco é `plan ∈ {free, pro, unlimited}` e 
 
 | # | Ação | Desbloqueia |
 |---|---|---|
-| 1 | Escolher/registrar um domínio | B01 |
+| 1 | Escolher/registrar um domínio (~R$40/ano) | B01, B24, backup off-site |
 | 2 | Bucket Oracle Object Storage + PAR → `BACKUP_UPLOAD_URL` | B02 |
-| 3 | Keys de LLM na Vercel (landing) + redeploy | B04 |
+| 3 | Keys de LLM na Vercel (landing) + `NEXT_PUBLIC_PANEL_URL` + redeploy | B04, B23 (LP) |
 | 4 | Rotacionar as keys de LLM que passaram pelo chat | — |
-| 5 | (quando for fazer B17) projeto Google Cloud + registro Azure | B17 |
+| 5 | Kiwify: configurar webhook (`${PANEL}/api/webhook/kiwify` + token) + `NEXT_PUBLIC_KIWIFY_SABIO/MESTRE` na Vercel + `KIWIFY_WEBHOOK_TOKEN`/`KIWIFY_PRODUCT_*` no `web.env` da VM | B23 (cobrança) |
+| 6 | (quando for fazer B24/B17) projeto Google Cloud + registro Azure | B24, B17 |
 
 ---
 
@@ -161,3 +168,4 @@ A landing já mostra Kiwify, mas o banco é `plan ∈ {free, pro, unlimited}` e 
 | — | OpenRouter na cadeia + ordem por capacidade + `:free` forçado (`056b48f`) | 2026-09-02 |
 | — | Otimização de RAM da VM: swap 3 GB, fwupd/multipathd off, caps de heap/malloc, PG max_conn 25 (−65 MB, swap 288→65) | 2026-09-02 |
 | B22 | Auditoria de integridade do banco + migration `0013` (índice único 1-trilha-ativa, dedup de tarefa, backfill de linhas-filhas, `create_plan` transacional). Isolamento entre usuários verificado OK. (`fd504aa`) | 2026-09-02 |
+| B23 | **Acesso sem Telegram** — migration `0014`, cadastro web (nome+email) + link pessoal (token 256 bits, troca por cookie), onboarding no painel (`/onboarding` + `trilha-build.ts`), bot agenda usuários só-push, webhook Kiwify (`/api/webhook/kiwify`, casa por e-mail), LP atualizada. Testado ponta a ponta em produção. (`ea82439`, `abc310d`) | 2026-09-02 |
