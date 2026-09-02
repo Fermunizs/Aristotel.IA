@@ -4,9 +4,10 @@ import { db } from "@/lib/db";
 import { users } from "@/lib/schema";
 import { getSession } from "@/lib/session";
 import { rotateLoginToken } from "@/lib/webauth";
+import { publicOrigin } from "@/lib/origin";
 
 function linkFor(req: Request, token: string) {
-  return `${new URL(req.url).origin}/entrar/link?k=${token}`;
+  return `${publicOrigin(req)}/entrar/link?k=${token}`;
 }
 
 export async function GET(req: Request) {

@@ -25,15 +25,12 @@ function stubWeek(n: number, theme: string): Week {
   return { n, theme: t, days: [1, 2, 3, 4, 5].map((i) => ({ d: i, topic: `${t} — parte ${i}`, goal: "" })) };
 }
 
-async function genWeek(persona: string, base: string, themes: string[], n: number, meta: Meta): Promise<Week | null> {
-  const payload =
-    `${base}\nTemas das 4 semanas: ${JSON.stringify(themes)}\n` +
-    `Detalhe a semana ${n}, tema: ${themes[n - 1]}`;
+async function genWeekOnce(persona: string, payload: string, n: number, themes: string[], tokens: number, meta: Meta): Promise<Week | null> {
   try {
     const wk = await groqJson<{ theme?: string; days?: { topic: string; goal?: string }[] }>(
       persona + "\n\n" + TRILHA_SEMANA,
       payload,
-      2500,
+      tokens,
       meta,
     );
     const days = wk?.days;
@@ -46,6 +43,17 @@ async function genWeek(persona: string, base: string, themes: string[], n: numbe
   } catch {
     return null;
   }
+}
+
+async function genWeek(persona: string, base: string, themes: string[], n: number, meta: Meta): Promise<Week | null> {
+  const payload =
+    `${base}\nTemas das 4 semanas: ${JSON.stringify(themes)}\n` +
+    `Detalhe a semana ${n}, tema: ${themes[n - 1]}`;
+  // 1 retry com mais tokens antes de desistir — espelha bot/llm.py::generate_json
+  return (
+    (await genWeekOnce(persona, payload, n, themes, 2500, meta)) ||
+    (await genWeekOnce(persona, payload, n, themes, 4000, meta))
+  );
 }
 
 /** null só se NENHUMA semana saiu (LLM totalmente fora). Semana isolada que falha vira stub. */
