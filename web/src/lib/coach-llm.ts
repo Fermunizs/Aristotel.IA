@@ -38,16 +38,17 @@ const SPECS: Record<string, { base: string; keyEnv: string; modelEnv: string; mo
   },
 };
 
-const ORDER = (process.env.LLM_PROVIDER || "groq,gemini,mistral")
+const ORDER = (process.env.LLM_PROVIDER || "groq,mistral,gemini,openrouter")
   .split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
 
 const CHAIN: Provider[] = ORDER.flatMap((name, i) => {
   const s = SPECS[name];
   const key = s ? (process.env[s.keyEnv] || "") : "";
   if (!s || !key) return [];
-  const model =
+  let model =
     (process.env[s.modelEnv] || "").trim() ||
     (i === 0 && process.env.LLM_MODEL ? process.env.LLM_MODEL : s.model);
+  if (name === "openrouter" && !model.includes(":")) model += ":free";
   return [{ name, base: s.base, key, model }];
 });
 

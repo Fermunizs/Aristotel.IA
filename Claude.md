@@ -132,9 +132,10 @@ TZ=America/Sao_Paulo
 ```
 
 **Cadeia de LLM** (`bot/config.py::_PROVIDER_SPECS`, espelhada em `web/src/lib/coach-llm.ts` e `landing/src/lib/llm.ts`): provedores OpenAI-compat. Só entram na cadeia os que têm key; a ordem vem de `LLM_PROVIDER`. Se o 1º estoura rate limit / cai, `llm.py` passa pro próximo (concorrência e cooldown por-provedor). Adicionar provedor = 1 linha em `_PROVIDER_SPECS` (base_url + env da key) + a key no `.env`.
-**Cadeia ativa (2026-09-02, testada ponta a ponta na VM):** `LLM_PROVIDER=groq,gemini,mistral`. Groq → `openai/gpt-oss-120b` (reasoning_effort=low, primário) · Gemini → `gemini-flash-lite-latest` · Mistral → `mistral-small-latest`.
-Fora da cadeia (specs mantidos p/ religar): **Cerebras** e **SambaNova** passaram a exigir billing (402 Payment required em key nova); **GitHub Models** em retirement brownout (410); **OpenRouter** sem key. Se algum voltar a ter free tier, é só pôr a key + o nome em `LLM_PROVIDER`.
-Obs.: a conta Groq da Fernanda só expõe alguns modelos (sem Llama 3.3/4). Nomes datados do Gemini (`gemini-2.5-flash`) dão 404 "no longer available to new" em key nova — usar os aliases `-latest`.
+**Cadeia ativa (2026-09-02, testada ponta a ponta na VM):** `LLM_PROVIDER=groq,mistral,gemini,openrouter` (mais capaz primeiro). Groq → `openai/gpt-oss-120b` (reasoning_effort=low, primário, melhor resposta nos testes) · Mistral → `mistral-small-latest` · Gemini → `gemini-flash-lite-latest`.
+**OpenRouter:** key configurada, mas a conta da Fernanda **sem crédito** → todo modelo `:free` devolve 404 ("unavailable for free" / "no endpoints"). Fica no fim da cadeia como degrau extra antes do pool local; vira útil quando ela puser US$10 de crédito vitalício (destrava DeepSeek V3, Llama 3.3 70B etc). `config.py` força `:free` no modelo do openrouter.
+Fora da cadeia (specs mantidos p/ religar): **Cerebras** e **SambaNova** passaram a exigir billing (402 em key nova); **GitHub Models** em retirement brownout (410).
+Obs.: a conta Groq só expõe alguns modelos (sem Llama 3.3/4). Nomes datados do Gemini (`gemini-2.5-flash`, `-pro`) dão 404/429 em key nova — usar `gemini-flash-lite-latest`.
 
 Se o LLM falhar, `llm.py` usa um fallback local (pool de frases) para o bot nunca ficar mudo.
 

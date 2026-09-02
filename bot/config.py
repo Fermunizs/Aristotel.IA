@@ -84,9 +84,13 @@ _PROVIDER_SPECS = {
     },
 }
 
+# ordem = prioridade (mais capaz primeiro). groq gpt-oss-120b é o mais forte
+# E o mais rápido; mistral-small > gemini-flash-lite. openrouter fica por último:
+# o free tier dele hoje devolve 404 sem crédito ($10 vitalício destrava vários
+# modelos bons) — enquanto isso ele é só um degrau extra antes do pool local.
 _order = [
     p.strip().lower()
-    for p in os.getenv("LLM_PROVIDER", "groq,gemini,mistral").split(",")
+    for p in os.getenv("LLM_PROVIDER", "groq,mistral,gemini,openrouter").split(",")
     if p.strip()
 ]
 _forced_model = os.getenv("LLM_MODEL", "").strip()
@@ -103,6 +107,8 @@ for i, name in enumerate(_order):
     model = os.getenv(spec.get("model_env", ""), "").strip() or spec["default_model"]
     if i == 0 and _forced_model:
         model = _forced_model
+    if name == "openrouter" and ":" not in model:
+        model += ":free"  # openrouter: sempre :free pra não cair em cobrança
     LLM_CHAIN.append({
         "name": name,
         "base_url": spec["base_url"],
