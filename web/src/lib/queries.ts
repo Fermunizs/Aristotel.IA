@@ -388,3 +388,92 @@ export async function adminOverview() {
 
   return { rows, stats: { total, active, onboarding, seen7, avgStreak } };
 }
+
+// ── Retenção (Backlog.md B06 · métricas de Produto.md §8) ─────────────
+// "Dia engajado" = a pessoa fez algo (quiz, review, desafio, foco, jasei,
+// skip, conversa livre) OU concluiu uma tarefa naquele dia. Mensagens que o
+// bot MANDA (msg:guide, msg:micro…) não contam.
+const ENG_SQL = sql`
+  SELECT user_id, day FROM events
+   WHERE kind IN ('quiz','quiz_reforco','review','desafio','foco','jasei','skip','msg:chat')
+  UNION
+  SELECT user_id, day FROM tasks WHERE status = 'done'`;
+
+export type Retencao = Awaited<ReturnType<typeof retencao>>;
+
+export async function retencao() {
+  const [funnelRows, dnRows, dailyRows, quietRows] = await Promise.all([
+    db.execute(sql`
+      WITH eng AS (${ENG_SQL}),
+           u AS (SELECT id, created_at::date AS signup, status FROM users WHERE telegram_chat_id IS NOT NULL)
+      SELECT
+        (SELECT count(*)::int FROM u) AS total,
+        (SELECT count(*)::int FROM u WHERE status='active') AS active,
+        (SELECT count(*)::int FROM u WHERE status='onboarding') AS onboarding,
+        (SELECT count(DISTINCT user_id)::int FROM eng WHERE day >= current_date - 6) AS engaged_7d,
+        (SELECT count(DISTINCT user_id)::int FROM eng WHERE day >= current_date - 1) AS engaged_2d,
+        (SELECT count(*)::int FROM u JOIN learning_plans lp ON lp.user_id=u.id AND lp.active
+           WHERE u.signup <= current_date - 7) AS w2_elig,
+        (SELECT count(*)::int FROM u JOIN learning_plans lp ON lp.user_id=u.id AND lp.active
+           WHERE u.signup <= current_date - 7 AND lp.current_week >= 2) AS w2_reached
+    `) as unknown as Array<Record<string, number>>,
+
+    db.execute(sql`
+      WITH eng AS (${ENG_SQL}),
+           u AS (SELECT id, created_at::date AS signup FROM users WHERE telegram_chat_id IS NOT NULL)
+      SELECT
+        count(*) FILTER (WHERE signup <= current_date - 1)::int  AS elig_d1,
+        count(*) FILTER (WHERE signup <= current_date - 1  AND EXISTS
+          (SELECT 1 FROM eng e WHERE e.user_id=u.id AND e.day >= u.signup + 1))::int  AS ret_d1,
+        count(*) FILTER (WHERE signup <= current_date - 7)::int  AS elig_d7,
+        count(*) FILTER (WHERE signup <= current_date - 7  AND EXISTS
+          (SELECT 1 FROM eng e WHERE e.user_id=u.id AND e.day >= u.signup + 7))::int  AS ret_d7,
+        count(*) FILTER (WHERE signup <= current_date - 30)::int AS elig_d30,
+        count(*) FILTER (WHERE signup <= current_date - 30 AND EXISTS
+          (SELECT 1 FROM eng e WHERE e.user_id=u.id AND e.day >= u.signup + 30))::int AS ret_d30
+      FROM u
+    `) as unknown as Array<Record<string, number>>,
+
+    db.execute(sql`
+      WITH eng AS (${ENG_SQL})
+      SELECT d::date::text AS day,
+        (SELECT count(DISTINCT user_id)::int FROM eng WHERE day = d::date) AS active,
+        (SELECT count(DISTINCT user_id)::int FROM tasks WHERE day = d::date AND status='done') AS done
+      FROM generate_series(current_date - 13, current_date, interval '1 day') d
+      ORDER BY day
+    `) as unknown as Array<{ day: string; active: number; done: number }>,
+
+    db.execute(sql`
+      WITH eng AS (${ENG_SQL})
+      SELECT u.name, u.telegram_username AS username, u.created_at::date::text AS signup,
+        (SELECT max(day)::text FROM eng WHERE user_id = u.id) AS last_eng
+      FROM users u
+      WHERE u.telegram_chat_id IS NOT NULL AND u.status='active'
+        AND coalesce((SELECT max(day) FROM eng WHERE user_id = u.id), DATE '1970-01-01') < current_date - 2
+      ORDER BY last_eng NULLS FIRST
+      LIMIT 30
+    `) as unknown as Array<{ name: string | null; username: string | null; signup: string; last_eng: string | null }>,
+  ]);
+
+  const f = funnelRows[0] ?? {};
+  const dn = dnRows[0] ?? {};
+  const pct = (num: number, den: number) => (den > 0 ? Math.round((num / den) * 100) : null);
+
+  return {
+    funnel: {
+      total: f.total ?? 0,
+      active: f.active ?? 0,
+      onboarding: f.onboarding ?? 0,
+      engaged7d: f.engaged_7d ?? 0,
+      engaged2d: f.engaged_2d ?? 0,
+    },
+    dn: [
+      { label: "D1", elig: dn.elig_d1 ?? 0, ret: dn.ret_d1 ?? 0, pct: pct(dn.ret_d1 ?? 0, dn.elig_d1 ?? 0), good: 50, weak: 30 },
+      { label: "D7", elig: dn.elig_d7 ?? 0, ret: dn.ret_d7 ?? 0, pct: pct(dn.ret_d7 ?? 0, dn.elig_d7 ?? 0), good: 50, weak: 30 },
+      { label: "D30", elig: dn.elig_d30 ?? 0, ret: dn.ret_d30 ?? 0, pct: pct(dn.ret_d30 ?? 0, dn.elig_d30 ?? 0), good: 30, weak: 15 },
+    ],
+    trilhaW2: { elig: f.w2_elig ?? 0, reached: f.w2_reached ?? 0, pct: pct(f.w2_reached ?? 0, f.w2_elig ?? 0), good: 40, weak: 20 },
+    daily: dailyRows.map((r) => ({ ...r, pct: pct(r.done, r.active) })),
+    quiet: quietRows,
+  };
+}
