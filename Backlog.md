@@ -42,9 +42,17 @@ O `aristotelia-backup.timer` roda diário e gzipa o dump em `~/backups/` na VM �
 ## P1 — Antes de convidar mais gente
 
 ### B04 · Chaves de fallback de LLM na Vercel — `P` — (parte já feita 2026-09-02)
-A cadeia `groq,gemini,mistral` já está ativa e testada **na VM** (bot + painel). Falta só a **landing na Vercel**: `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `LLM_PROVIDER=groq,gemini,mistral`, `GEMINI_MODEL=gemini-flash-lite-latest` em Settings → Environment Variables → redeploy.
+A cadeia `groq,mistral,gemini,openrouter` já está ativa e testada **na VM** (bot + painel). Falta só a **landing na Vercel** → Settings → Environment Variables → redeploy:
+```
+GEMINI_API_KEY=<a chave>
+MISTRAL_API_KEY=<a chave>
+OPENROUTER_API_KEY=<a chave>
+LLM_PROVIDER=groq,mistral,gemini,openrouter
+GEMINI_MODEL=gemini-flash-lite-latest
+```
 Sem isso o widget "monte metade da trilha" só tem o Groq de rede.
 **Depende de:** Fernanda (Vercel). Rotacionar as keys depois (passaram pelo chat).
+**OpenRouter:** hoje a conta está **sem crédito** → todo modelo `:free` dá 404. US$10 de crédito vitalício destrava DeepSeek V3 / Llama 3.3 70B etc. Enquanto isso o openrouter no fim da cadeia é inofensivo (só um degrau antes do pool local).
 
 ### ~~B05 · Onboarding à prova de bala~~ — FEITO 2026-09-02 (commit `ea8fd72`) — refs F13
 Trava de geração (`step='building'` → não regera), `_stub_week` pra semana parcial, `_retry_job` automático (até 3x), `get_or_create_user` com `ON CONFLICT`, boas-vindas não repete. `scripts/check_onboarding.py` cobre a degradação. Deployado.
@@ -98,6 +106,9 @@ Hoje é 1 job persistente no APScheduler por lembrete por usuário (N×~10). Tra
 ### B18 · Multi-trilha — `G`
 Sábio: 3 trilhas, Mestre: 6. Modelo de dias-da-semana por trilha. Precisa migration (`learning_plans` deixa de ser 1-ativo-por-user) + UI.
 
+### B21 · Postgres nativo em vez de Docker — `M`
+Hoje o Postgres roda num container (`arist-pg`); `dockerd` + `containerd` custam ~72 MB de RAM só pra servir 1 container. Migrar pra Postgres nativo (apt) liberaria isso. Risco: migração do volume `arist_pgdata` + ajustar `scripts/backup-db.sh` (que usa `docker exec`) e `bot/vitals.py` (que usa `docker inspect`). Só vale se a RAM apertar de novo — a otimização de 2026-09-02 já deu folga (356/956 usados, 3 GB de swap).
+
 ### B19 · Higiene de schema + robustez de infra — `M` — refs F22, F24
 `push_history` já virou append atômico (F16 feito). Falta: processo único / VM única (F24) — aceitar o risco por ora, mas ter o restore documentado e testado (tem em `CLAUDE.md §6`). Revisar `pop_outbox` sem `FOR UPDATE SKIP LOCKED` se aparecer 2º consumidor.
 
@@ -143,3 +154,5 @@ A landing já mostra Kiwify, mas o banco é `plan ∈ {free, pro, unlimited}` e 
 | B05 | Onboarding à prova de bala (trava de geração + retry + semana parcial, `ea8fd72`) | 2026-09-02 |
 | B06 | Página de retenção `/admin/retencao` (`ae78316`) | 2026-09-02 |
 | B07 | Telas de erro + gate de tipos no deploy (`74e5ba6`) | 2026-09-02 |
+| — | OpenRouter na cadeia + ordem por capacidade + `:free` forçado (`056b48f`) | 2026-09-02 |
+| — | Otimização de RAM da VM: swap 3 GB, fwupd/multipathd off, caps de heap/malloc, PG max_conn 25 (−65 MB, swap 288→65) | 2026-09-02 |

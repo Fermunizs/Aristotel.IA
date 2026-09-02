@@ -163,7 +163,8 @@ Depois, no Telegram, mandar `/start` para o bot.
 
 **Onde roda:** VM `aristotelia` na Oracle Cloud, região `sa-saopaulo-1`.
 - Shape **`VM.Standard.E2.1.Micro`** (1 OCPU, 1 GB RAM) — **Always Free**, custo **US$0**.
-- Ubuntu 22.04. IP público: **`147.15.46.51`**. Swap de 1 GB ativo.
+- Ubuntu 22.04. IP público: **`147.15.46.51`**. **Swap de 3 GB** (`/swapfile`), `vm.swappiness=10` + `vm.vfs_cache_pressure=50` (`/etc/sysctl.d/99-arist-mem.conf`).
+- **Enxugado pra caber em 1 GB (2026-09-02):** `fwupd` e `multipathd` mascarados; bot com `MALLOC_ARENA_MAX=2` (drop-in `aristotelia.service.d/mem.conf`); painel com `NODE_OPTIONS=--max-old-space-size=160`; Postgres `max_connections=25`. RAM em uso ~356/956, swap ~65 MB.
 - Rede: VCN `aristotelia-vcn` / subnet `arist-subnet`, security list libera só SSH (22) de entrada.
 - **Nunca clicar em "Upgrade to Pay As You Go"** no painel Oracle — é o que quebraria a garantia de custo zero.
 

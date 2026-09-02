@@ -652,3 +652,21 @@ Fernanda: "pode mandar ver em tudo que for importante para colocarmos para rodar
 - `scripts/deploy-web.sh` roda `tsc --noEmit` e **aborta** se falhar, antes do `next build`. `ignoreBuildErrors` continua (segfault do worker no Node 24/Win) mas a checagem virou obrigatória no deploy.
 
 **Ainda na fila:** P0 B01 (domínio — Fernanda) · B02 (bucket Oracle — Fernanda) · B04 (keys na Vercel — Fernanda). P2: B09 persona enxuta, B10 N+1, B11 calibrar limites de LLM.
+
+## 2026-09-02 (continuação) — OpenRouter + ordem por capacidade + otimização da VM
+
+Fernanda: adicionar a key da OpenRouter, priorizar "a chave mais inteligente primeiro", OpenRouter sempre `:free`, e otimizar a VM (RAM em ~520/956, com medo de não suportar ao convidar gente).
+
+### LLM
+- **Benchmark real na VM** (prompt "explique API REST em 1 frase"): Groq `gpt-oss-120b` = melhor resposta (completa, PT natural, rápida). Mistral `small` = boa. Gemini `flash-lite` = fraca/truncada. Gemini `pro-latest` = 429 (quota free baixa). Gemini `2.5-flash` = 404.
+- **OpenRouter: conta sem crédito → TODO modelo `:free` devolve 404** ("unavailable for free" ou "no endpoints"). Testei 11 modelos, nenhum funciona. Só destrava com US$10 de crédito vitalício (aí libera DeepSeek V3, Llama 3.3 70B etc). Key adicionada no `.env` + `web.env` mesmo assim; fica no FIM da cadeia — como `_call` só tenta o próximo quando o anterior falha, um openrouter morto no fim só custa 1 chamada falha quando groq+mistral+gemini já caíram (raríssimo), aí vai pro pool local igual.
+- **Ordem nova:** `LLM_PROVIDER=groq,mistral,gemini,openrouter` (mais capaz primeiro). `config.py` força sufixo `:free` no modelo do openrouter. Espelhado em web + landing. Commit `056b48f`, deployado (bot + painel).
+
+### Otimização da VM (feito, ao vivo)
+Antes: 420 MB usados / 375 livres, **288 MB em swap** (só 1 GB de swap). Depois: **356 usados / 438 livres, 65 MB em swap**, swap agora de **3 GB**.
+- **Swap 1 GB → 3 GB** (`/swapfile` recriado, fstab ok). `vm.swappiness=60→10`, `vm.vfs_cache_pressure=100→50` em `/etc/sysctl.d/99-arist-mem.conf`.
+- **`fwupd` e `multipathd` mascarados e mortos** (inúteis num VM guest) — ~50 MB de processos + sockets.
+- **Bot:** drop-in systemd `/etc/systemd/system/aristotelia.service.d/mem.conf` com `MALLOC_ARENA_MAX=2` (104 → ~89 MB RSS).
+- **Painel:** `NODE_OPTIONS=--max-old-space-size=160` no `web.env` (97 → ~83 MB).
+- **Postgres:** `max_connections 100 → 25` (pool do bot = 8, do painel = 5; folga sobra). `ALTER SYSTEM` + restart do container.
+- Ideia anotada pro Backlog: rodar Postgres nativo (apt) em vez de Docker economizaria dockerd+containerd (~72 MB) — mas é migração com risco, fica pra depois.
