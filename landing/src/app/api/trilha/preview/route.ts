@@ -4,6 +4,7 @@ import { rateLimit } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60; // geração da trilha pode passar dos 10s padrão da Vercel
 
 type Dia = { d: number; titulo: string; objetivo: string };
 type Semana = { tema: string; dias: Dia[] };

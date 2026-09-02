@@ -68,7 +68,7 @@ async function callOne(p: Provider, messages: Msg[], maxTokens: number): Promise
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${p.key}` },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(20_000),
+    signal: AbortSignal.timeout(14_000), // rápido: cai pro próximo provedor sem estourar o maxDuration
   });
   if (!res.ok) throw new Error(`${p.name} ${res.status}`);
   const json = await res.json();
