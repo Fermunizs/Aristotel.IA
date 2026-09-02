@@ -21,6 +21,12 @@ fi
 
 cd "$BUILD"
 rm -rf .next
+
+# gate de tipos — o next build roda com ignoreBuildErrors (worker segfauta no
+# Node 24/Win), então a checagem de verdade é aqui e ABORTA o deploy se falhar.
+echo "→ checagem de tipos (tsc --noEmit)…"
+npx tsc --noEmit
+
 DATABASE_URL="postgresql://x:x@127.0.0.1/x" npx next build
 
 rm -rf .next/standalone/.next/static .next/standalone/public
