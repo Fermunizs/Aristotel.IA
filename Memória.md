@@ -670,3 +670,24 @@ Antes: 420 MB usados / 375 livres, **288 MB em swap** (só 1 GB de swap). Depois
 - **Painel:** `NODE_OPTIONS=--max-old-space-size=160` no `web.env` (97 → ~83 MB).
 - **Postgres:** `max_connections 100 → 25` (pool do bot = 8, do painel = 5; folga sobra). `ALTER SYSTEM` + restart do container.
 - Ideia anotada pro Backlog: rodar Postgres nativo (apt) em vez de Docker economizaria dockerd+containerd (~72 MB) — mas é migração com risco, fica pra depois.
+
+## 2026-09-02 (continuação) — auditoria de integridade do banco (B22) + migration 0013
+
+Fernanda: "a estrutura do banco está tudo certo? tenho medo de bagunçar as informações de um usuário com o outro, a memória está funcionando, ela tem acesso à trilha e vai dando check, quero um banco que não quebre caso cresça".
+
+**Auditoria (li o schema todo, as ~40 funções de `bot/db.py` e as 15 rotas de `web/src/app/api`):**
+- **Isolamento entre usuários = OK.** Toda tabela de dados tem `user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE`. Toda query do bot tem `WHERE user_id = $1`. As mutações do painel que recebem só um id (`tasks/[id]`, `reminders`, `push`) filtram `AND user_id = session.viewing.id` — id de outra pessoa vira no-op. Rotas `/api/admin/*` checam `account.role === 'superadmin'`. `viewing` (quem você olha) vs `account` (quem você é) bem separados.
+- **Memória = OK.** `bot_state.history` por usuário (PK), append atômico com corte em 14 msgs numa query só, compartilhada bot↔painel (mesmo SQL nos dois). Zerada no `/recomecar`.
+- **Check da trilha = OK.** Job cria `tasks source='trilha'` → quiz/desafio/review pelo Telegram fazem `auto_complete(user_id, day, source)`, ou toggle no painel via `/api/tasks/[id]` com escopo. `add_task` deduplica.
+- **Índices:** cobrem todos os caminhos quentes (`tasks(user_id,day)`, `events(user_id,day)` e `(user_id,kind)`, `learning_plans(user_id) WHERE active`, etc).
+- **Riscos de escala:** (a) `events` cresce sem prune — ok por 1+ ano; (b) `learning_plans.weeks` JSONB guarda o `detail` mutável de cada dia → todo toggle reescreve o blob; refatorar em multi-trilha. Anotados B12/B22 no Backlog.
+
+**Migration `0013_integrity.sql`** (aplicada, dry-run OK antes — 0 linhas violavam):
+- `learning_plans_user_id_idx` (comum) → **`learning_plans_one_active` ÚNICO parcial** — impossível 2 trilhas ativas pro mesmo user. `db.create_plan` virou transacional (desativa+insere atômico).
+- **`tasks_dedup` ÚNICO** `(user_id, day, source, title)` — fecha a corrida do SELECT-então-INSERT; `add_task` agora `ON CONFLICT DO NOTHING`.
+- `events_kind_idx` — ajuda a página de retenção e o check de near-limit.
+- Backfill defensivo: `INSERT INTO preferences/streaks/bot_state SELECT id FROM users ON CONFLICT DO NOTHING`.
+
+Commit `fd504aa`, deployado (bot aplicou a migration no restart, 3 índices confirmados).
+
+**Veredito pra Fernanda:** o banco NÃO mistura dados entre usuários e aguenta crescer. O que fica pra depois é só otimização (partição de `events`, tirar o `detail` do JSONB) — nada quebra sem isso.

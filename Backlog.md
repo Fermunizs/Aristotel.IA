@@ -81,7 +81,11 @@ Dashboard faz várias queries em série + N+1 em algumas listas. Paralelizar (`P
 `bot/llm_limits.py` e `web/src/lib/llm-limits.ts` têm `PROVIDER_LIMITS` **chutados da doc**. Agora que a cadeia é `groq,gemini,mistral`, medir os limites reais (rpm/rpd/tpm/tpd) de cada um e ajustar — senão o aviso de "quase-limite" em `/admin/consumo` mente.
 
 ### B12 · Higiene de dados que cresce sem prune — `P` — refs F22
-`events` cresce sem partição/limpeza (ok por ~1 ano). `auth_codes`/`web_sessions` expirados: o `_cleanup_tick` diário já cobre parte. Revisar o que falta e documentar o horizonte.
+`events` cresce sem partição/limpeza (~15 linhas/usuário/dia — a tabela que mais cresce; ok por 1+ ano, ~1,6 M linhas/ano a 300 usuários). `auth_codes`/`web_sessions`/`outbox`/`content_cache`/`llm_usage` já têm prune no `_cleanup_tick` diário. Quando `events` incomodar: partição por mês OU job que apaga `msg:*` (mensagens que o bot mandou) com >90 dias, mantendo os de engajamento.
+**Auditoria de integridade feita 2026-09-02 (B22):** ver "Feito". Isolamento entre usuários = OK (FK `user_id` + toda query com escopo, verificado nas ~40 funções do bot e nas 15 rotas de API do painel).
+
+### B22 · Guardar a estrutura mutável da trilha fora do JSONB `weeks` — `M` — refs F22
+O detalhamento por dia (`detail`: checklist, entrega, dica) é cacheado DENTRO de `learning_plans.weeks` — cada toggle de item reescreve o blob inteiro da trilha e tem janela de corrida se a pessoa abre 2 abas. Funciona hoje; quando a trilha ficar longa ou entrar multi-trilha (B18), mover pra uma tabela `plan_day_detail (plan_id, week, day, detail jsonb, checklist_state jsonb)`.
 
 ---
 
@@ -156,3 +160,4 @@ A landing já mostra Kiwify, mas o banco é `plan ∈ {free, pro, unlimited}` e 
 | B07 | Telas de erro + gate de tipos no deploy (`74e5ba6`) | 2026-09-02 |
 | — | OpenRouter na cadeia + ordem por capacidade + `:free` forçado (`056b48f`) | 2026-09-02 |
 | — | Otimização de RAM da VM: swap 3 GB, fwupd/multipathd off, caps de heap/malloc, PG max_conn 25 (−65 MB, swap 288→65) | 2026-09-02 |
+| B22 | Auditoria de integridade do banco + migration `0013` (índice único 1-trilha-ativa, dedup de tarefa, backfill de linhas-filhas, `create_plan` transacional). Isolamento entre usuários verificado OK. (`fd504aa`) | 2026-09-02 |
