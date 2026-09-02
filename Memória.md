@@ -603,3 +603,25 @@ Sessão longa. Vários pedidos da Fernanda.
 
 ### Ainda na fila (ordem a definir com a Fernanda)
 B) enum de planos + teto por plano · C) implementar o calendário · E) multi-trilha · F) pipeline conteúdo→rede social.
+
+## 2026-09-02 — auditoria da VM + cadeia de LLM de verdade + início da estruturação do backlog
+
+Fernanda: "vamos estruturar a plataforma pois está uma bagunça de tarefas e vamos pelas mais críticas". Pressão: convidar mais gente + confiabilidade do que está no ar (cobrança NÃO é prioridade agora).
+
+**Auditoria da VM (o que estava desatualizado na Memória):**
+- **Lote D (limits + vitals) JÁ está em produção** — migration `0012` aplicada 2026-09-01 20:14, `system_vitals` atualiza a cada 60s, colunas `rl_*` em `llm_usage`. A nota "falta a Fernanda subir o deploy" estava errada.
+- Migrações: as 12 (`0001`→`0012`) todas aplicadas. Nada pendente. Não existe `0013` (calendário nunca foi construído).
+- Serviços todos `active` (aristotelia, aristotelia-web, backup.timer, arist-tunnel, url-sync.timer). Bot saudável.
+- **Backup:** timer roda (últimos: 01/09 e 02/09), mas `BACKUP_UPLOAD_URL` **vazio** → backup só existe dentro da VM (off-site nunca configurado).
+- **Túnel:** ainda quick tunnel (`*.trycloudflare.com`), URL efêmera — F05 aberto, maior risco operacional.
+- Branch `master` local = só o commit da Fase 0, já superado por `main`.
+
+**Cadeia de LLM — era teatro, agora é real:**
+- Descoberto: no `.env` da VM **só `GROQ_API_KEY` tinha valor**; as outras 6 linhas existiam vazias. `llm_usage` de 3 dias = 100% Groq, zero fallback. 1 provedor = 1 ponto de falha no pico das 8h.
+- Fernanda colou as 5 keys no chat sob pressão de tempo e pediu explicitamente pra aplicar. Aplicadas (free tier, sem billing = sem risco $).
+- **Teste real de cada uma na VM:** Gemini ✅ (mas `gemini-2.5-flash` dá 404 "no longer available to new" → `gemini-flash-lite-latest`), Mistral ✅ (`mistral-small-latest`), Groq ✅. **Cerebras** ❌ 402 Payment required, **SambaNova** ❌ 402 (`balance_units: 0`), **GitHub Models** ❌ 410 retirement brownout.
+- **Cadeia ativa:** `LLM_PROVIDER=groq,gemini,mistral` (Groq primário — é onde a pedagogia foi calibrada). Setada em `.env` + `web.env` da VM, serviços reiniciados, 3 provedores confirmados por chamada real.
+- Commit `6e7a2e2`: `bot/config.py` (default order + gemini model), `web/src/lib/coach-llm.ts`, `landing/src/lib/llm.ts`, `CLAUDE.md §5`. `tsc` web+landing limpo, `config.py` compila.
+- **Falta a Fernanda:** pôr `GEMINI_API_KEY`/`MISTRAL_API_KEY` + `LLM_PROVIDER`/`GEMINI_MODEL` na **Vercel** (landing) e redeploy. Rotacionar as keys quando sair da correria (passaram pelo chat).
+
+**Próximo:** montar o `Backlog.md` (fonte única, IDs estáveis) consolidando Raio-X F01–F24 + fila da Memória, priorizado pra "convidar gente + confiabilidade". Depois atacar P0 (domínio próprio, backup off-site).
