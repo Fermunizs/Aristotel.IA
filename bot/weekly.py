@@ -7,8 +7,8 @@ from datetime import timedelta
 from telegram.ext import ContextTypes
 
 from . import config, db, prompts
-from .jobs import _ctx
-from .util import ask, now_for, send_text
+from .jobs import _ctx, _deliver
+from .util import ask, now_for
 
 log = logging.getLogger("aristotelia.weekly")
 
@@ -22,8 +22,8 @@ async def weekly_review(context: ContextTypes.DEFAULT_TYPE, *, force: bool = Fal
     since = (now_for(user) - timedelta(days=7)).date()
     events = await db.events_since(user["id"], since)
     if not events:
-        await send_text(context.bot, chat,
-                        "📊 *SUA SEMANA*\n\nSem registros essa semana. Semana que vem começa o placar.")
+        await _deliver(context, user, chat, "Sua semana",
+                       "📊 *SUA SEMANA*\n\nSem registros essa semana. Semana que vem começa o placar.")
         return
     resumo = "\n".join(
         f"- {e['day']} [{e['kind']}] {e['payload']}" for e in events
@@ -32,7 +32,7 @@ async def weekly_review(context: ContextTypes.DEFAULT_TYPE, *, force: bool = Fal
     goal = plan["goal"] if plan else None
     texto = await ask(prompts.persona(user["name"], goal, user["coach_tone"], user["coach_note"]) + "\n\n" + prompts.WEEKLY_REVIEW,
                       f"Registros:\n{resumo}", label=True, temperature=0.7, max_tokens=450)
-    await send_text(context.bot, chat, texto)
+    await _deliver(context, user, chat, "Sua semana", texto)
 
 
 async def content_planner(context: ContextTypes.DEFAULT_TYPE, *, force: bool = False) -> None:
@@ -54,7 +54,7 @@ async def content_planner(context: ContextTypes.DEFAULT_TYPE, *, force: bool = F
         f"Tópicos da semana: {tops}\nIdeias salvas: {ideias_txt}",
         label=True, temperature=0.9, max_tokens=350,
     )
-    await send_text(context.bot, chat, texto)
+    await _deliver(context, user, chat, "Ideias de conteúdo", texto)
 
 
 async def advance_week(context: ContextTypes.DEFAULT_TYPE, *, force: bool = False) -> None:
@@ -71,8 +71,8 @@ async def advance_week(context: ContextTypes.DEFAULT_TYPE, *, force: bool = Fals
     if cur["week"] < max_week:
         await db.update_plan_position(user["id"], cur["week"] + 1, 1)
     else:
-        await send_text(context.bot, chat,
-                        "🗺️ Você chegou ao fim da trilha atual. Manda `/plano` e a gente monta as próximas semanas.")
+        await _deliver(context, user, chat, "Fim da trilha",
+                       "🗺️ Você chegou ao fim da trilha atual. Manda `/plano` e a gente monta as próximas semanas.")
 
 
 WEEKLY_JOBS = {

@@ -5,6 +5,9 @@ import { TrilhaPreview } from "@/components/TrilhaPreview";
 
 const BOT = process.env.NEXT_PUBLIC_BOT || "AristotelIA_bot";
 const TG = `https://t.me/${BOT}`;
+// painel (túnel/domínio) — setar em Environment Variables (Vercel)
+const PANEL = process.env.NEXT_PUBLIC_PANEL_URL || TG;
+const ENTRAR = PANEL === TG ? TG : `${PANEL.replace(/\/$/, "")}/entrar`;
 
 const PILLARS = [
   {
@@ -50,7 +53,7 @@ const STEPS = [
 
 const FAQ = [
   ["Preciso de cartão?", "Pra usar o Aprendiz, não — é grátis de verdade. Só Sábio e Mestre são pagos (Pix, cartão ou boleto pela Kiwify)."],
-  ["Não uso Telegram.", "Dá pra usar pelo painel web — trilha, checklist, foco e a conversa com a treinadora. Push no navegador e e-mail estão a caminho."],
+  ["Não uso Telegram.", "Dá sim. Você cria a conta no painel, responde 4 perguntas e a trilha nasce ali na hora. A treinadora te chama por notificação do navegador (instala o painel como app no celular). Sem senha — você salva um link pessoal pra voltar."],
   ["E se eu furar um dia?", '"Hoje não" reagenda sem quebrar o streak. Sumir uma semana também não te pune — a trilha congela e espera você voltar.'],
   ["Serve só pra programar?", "O motor é o mesmo pra qualquer coisa que você queira aprender com constância. Hoje o conteúdo é mais forte em tech, que é onde a gente está validando."],
   ["Quanto custa?", "O Aprendiz é grátis pra sempre. Sábio R$39/mês, Mestre R$79/mês (ou anual com desconto). Assinatura pela Kiwify, cancela quando quiser."],
@@ -329,6 +332,11 @@ export default function Home() {
             <a className="btn btn-primary" href={TG}>
               Começar no Telegram
             </a>
+            {ENTRAR !== TG && (
+              <a className="btn btn-ghost" href={ENTRAR}>
+                ou entrar pelo painel →
+              </a>
+            )}
           </div>
         </section>
       </main>

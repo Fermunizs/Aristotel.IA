@@ -83,6 +83,10 @@ async def _post_shutdown(app: Application) -> None:
 async def _outbox_tick(context) -> None:
     for row in await db.pop_outbox():
         try:
+            if not row["telegram_chat_id"]:
+                # usuário só-painel: nada pra entregar no Telegram — marca como enviada
+                await db.mark_outbox_sent(row["id"])
+                continue
             await context.bot.send_message(chat_id=row["telegram_chat_id"], text=row["text"])
             await db.mark_outbox_sent(row["id"])
         except Exception:  # noqa: BLE001

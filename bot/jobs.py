@@ -22,13 +22,14 @@ def _plain(text: str) -> str:
 async def _ctx(context: ContextTypes.DEFAULT_TYPE):
     uid = context.job.data["user_id"]
     user = await db.get_user(uid)
-    if not user or not user["telegram_chat_id"]:
+    if not user or user["status"] != "active":  # ex.: refazendo o onboarding (/recomecar)
         return None, None
-    if user["status"] != "active":  # ex.: refazendo o onboarding (/recomecar) — não dispara lembrete
+    chat = user["telegram_chat_id"]
+    if not chat and not await db.has_push(uid):  # nem Telegram nem push → sem canal
         return None, None
     data = (getattr(context, "job", None) and context.job.data) or {}
     usage.set_context(user["id"], data.get("kind") or "job")
-    return user, user["telegram_chat_id"]
+    return user, chat  # chat pode ser None (usuário só-push)
 
 
 def _note(context) -> str:
@@ -39,11 +40,12 @@ def _note(context) -> str:
 
 
 async def _deliver(context, user, chat, title: str, text: str) -> None:
-    """Entrega no canal do lembrete: telegram (padrão) ou push."""
+    """Entrega no canal do lembrete: telegram (padrão) ou push.
+    Sem chat_id (usuário só-push) cai sempre em push, seja qual for o channel."""
     channel = "telegram"
     if getattr(context, "job", None) and context.job.data:
         channel = context.job.data.get("channel", "telegram")
-    if channel == "push":
+    if channel == "push" or not chat:
         await push.send(user["id"], title, _plain(text))
     else:
         await send_text(context.bot, chat, text)

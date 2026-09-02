@@ -52,7 +52,7 @@ def _in_quiet(t: time, start: time | None, end: time | None) -> bool:
 async def schedule_user(app: Application, user) -> None:
     """(Re)agenda os lembretes do usuário + os jobs semanais fixos."""
     unschedule_user(app, user["id"])
-    if user["status"] != "active" or not user["telegram_chat_id"]:
+    if user["status"] != "active" or not (user["telegram_chat_id"] or await db.has_push(user["id"])):
         return
 
     tz = user_tz(user)

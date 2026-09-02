@@ -14,6 +14,33 @@ export const users = pgTable("users", {
   status: text("status").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+  // acesso web (migration 0014) — nullable pra quem é Telegram
+  email: text("email"),
+  googleSub: text("google_sub"),
+  avatarUrl: text("avatar_url"),
+  signupVia: text("signup_via").notNull(),
+  loginToken: text("login_token"),
+  loginTokenAt: timestamp("login_token_at", { withTimezone: true }),
+});
+
+// pagou no Kiwify antes de ter conta — aplicado no cadastro web
+export const pendingUpgrades = pgTable("pending_upgrades", {
+  email: text("email").primaryKey(),
+  plan: text("plan").notNull(),
+  kiwifyOrder: text("kiwify_order"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+});
+
+// log cru de todo webhook do Kiwify
+export const kiwifyEvents = pgTable("kiwify_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  eventType: text("event_type"),
+  orderId: text("order_id"),
+  email: text("email"),
+  matchedUser: uuid("matched_user"),
+  ok: boolean("ok").notNull(),
+  raw: jsonb("raw").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
 });
 
 export const authCodes = pgTable("auth_codes", {

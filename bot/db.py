@@ -109,12 +109,24 @@ async def set_status(user_id, status: str) -> None:
         await con.execute("UPDATE users SET status = $2 WHERE id = $1", user_id, status)
 
 
+_REACHABLE = (
+    "(u.telegram_chat_id IS NOT NULL "
+    " OR EXISTS (SELECT 1 FROM push_subscriptions ps WHERE ps.user_id = u.id))"
+)
+
+
 async def active_users() -> list[asyncpg.Record]:
     async with pool().acquire() as con:
         return await con.fetch(
             f"SELECT {_USER_COLS} FROM users u LEFT JOIN preferences p ON p.user_id = u.id "
-            "WHERE u.status = 'active' AND u.telegram_chat_id IS NOT NULL"
+            f"WHERE u.status = 'active' AND {_REACHABLE}"
         )
+
+
+async def has_push(user_id) -> bool:
+    async with pool().acquire() as con:
+        return bool(await con.fetchval(
+            "SELECT 1 FROM push_subscriptions WHERE user_id = $1 LIMIT 1", user_id))
 
 
 # ── preferências ─────────────────────────────────────────────────────
@@ -458,8 +470,8 @@ async def create_default_reminders(user_id) -> None:
 async def dirty_reminder_users() -> list[asyncpg.Record]:
     async with pool().acquire() as con:
         return await con.fetch(
-            """SELECT u.* FROM users u JOIN bot_state b ON b.user_id = u.id
-               WHERE b.reminders_dirty AND u.status = 'active' AND u.telegram_chat_id IS NOT NULL"""
+            f"""SELECT u.* FROM users u JOIN bot_state b ON b.user_id = u.id
+               WHERE b.reminders_dirty AND u.status = 'active' AND {_REACHABLE}"""
         )
 
 
