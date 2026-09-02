@@ -158,13 +158,16 @@ async def get_plan(user_id) -> dict | None:
 
 
 async def create_plan(user_id, goal: str, level: str, weeks: list) -> None:
+    # atômico: desativa as antigas e insere a nova na mesma transação, senão o
+    # índice único learning_plans_one_active pode barrar a inserção
     async with pool().acquire() as con:
-        await con.execute("UPDATE learning_plans SET active = false WHERE user_id = $1", user_id)
-        await con.execute(
-            """INSERT INTO learning_plans (user_id, goal, level, weeks)
-               VALUES ($1, $2, $3, $4)""",
-            user_id, goal, level, json.dumps(weeks),
-        )
+        async with con.transaction():
+            await con.execute("UPDATE learning_plans SET active = false WHERE user_id = $1", user_id)
+            await con.execute(
+                """INSERT INTO learning_plans (user_id, goal, level, weeks)
+                   VALUES ($1, $2, $3, $4)""",
+                user_id, goal, level, json.dumps(weeks),
+            )
 
 
 async def deactivate_plan(user_id) -> None:
@@ -331,19 +334,16 @@ async def bump_streak(user_id, today: date) -> int:
 # ── tarefas (checklist) ──────────────────────────────────────────────
 async def add_task(user_id, day: date, source: str, title: str, detail: str | None = None) -> None:
     async with pool().acquire() as con:
-        exists = await con.fetchval(
-            "SELECT 1 FROM tasks WHERE user_id = $1 AND day = $2 AND source = $3 AND title = $4",
-            user_id, day, source, title,
+        n = await con.fetchval(
+            "SELECT count(*) FROM tasks WHERE user_id = $1 AND day = $2", user_id, day
         )
-        if not exists:
-            n = await con.fetchval(
-                "SELECT count(*) FROM tasks WHERE user_id = $1 AND day = $2", user_id, day
-            )
-            await con.execute(
-                """INSERT INTO tasks (user_id, day, source, title, detail, sort_order)
-                   VALUES ($1, $2, $3, $4, $5, $6)""",
-                user_id, day, source, title, detail, n,
-            )
+        # ON CONFLICT: o índice único tasks_dedup fecha a corrida do SELECT-então-INSERT
+        await con.execute(
+            """INSERT INTO tasks (user_id, day, source, title, detail, sort_order)
+               VALUES ($1, $2, $3, $4, $5, $6)
+               ON CONFLICT (user_id, day, source, title) DO NOTHING""",
+            user_id, day, source, title, detail, n,
+        )
 
 
 async def get_tasks(user_id, day: date) -> list[asyncpg.Record]:
