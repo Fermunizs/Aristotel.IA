@@ -737,4 +737,17 @@ Fernanda: "a opção da pessoa que não tem Telegram não está na landing". Sem
 
 `tsc --noEmit` + `next build` OK. Commit `72ce1e1`, pushado (origin/main estava 14 commits atrás). Quando resolver o B05 e setar `NEXT_PUBLIC_PANEL_URL`, o CTA passa a levar direto pro `/entrar` sem tocar em código.
 
-**Ajuste (mesma sessão):** Fernanda: "clico em 'não uso telegram' e não dá em nada" — o `#faq` rolava pouco e o item ficava fechado. Agora o FAQ "Não uso Telegram." tem `id="sem-telegram"` + `open` por padrão, e o botão aponta pra `#sem-telegram`. Segue sendo fig leaf: **sem URL estável do painel (B05) não existe pra onde mandar quem não usa Telegram** — o botão só vira signup real quando `NEXT_PUBLIC_PANEL_URL` existir. Blocker de venda nº1 continua sendo os `NEXT_PUBLIC_KIWIFY_*` na Vercel (checkout).
+**Ajuste (mesma sessão):** Fernanda: "clico em 'não uso telegram' e não dá em nada" — o `#faq` rolava pouco e o item ficava fechado. Agora o FAQ "Não uso Telegram." tem `id="sem-telegram"` + `open` por padrão, e o botão aponta pra `#sem-telegram`. Segue sendo fig leaf: **sem URL estável do painel (B05) não existe pra onde mandar quem não usa Telegram** — o botão só vira signup real quando `NEXT_PUBLIC_PANEL_URL` existir. Blocker de venda nº1 continua sendo os `NEXT_PUBLIC_KIWIFY_*` na Vercel (checkout). Commit `e881103`.
+
+## 2026-09-03 — URL estável do painel (Tailscale Funnel) + B09/B03
+
+**Contexto:** Fernanda com pouco tempo (faculdade) e um colega já divulgando a plataforma — pressão pra vender. Decidiu atacar o B01/B05 (endereço fixo do painel) via **Tailscale Funnel** (grátis, sem domínio).
+
+**Em andamento (aguardando Fernanda autenticar):**
+- Tailscale instalado na VM (`1.102.3`, hostname `aristotelia`). `tailscale up` rodando, aguardando login em `https://login.tailscale.com/a/152798bf01089e`.
+- Setup atual: `arist-tunnel.service` (cloudflared quick tunnel → URL random) + `arist-url-sync.timer` (grep da URL no journal → `WEB_URL` no `.env` do bot, a cada 2 min). `web.env` NÃO tem `PANEL_URL` (painel usa `x-forwarded-host`).
+- **Plano:** Funnel expõe `127.0.0.1:3000` numa URL `https://aristotelia.<tailnet>.ts.net` fixa → fixar em `WEB_URL` (`.env` bot) + `PANEL_URL` (`web.env`) → parar/desabilitar `arist-tunnel` + `arist-url-sync` (deixar instalados como plano B) → `NEXT_PUBLIC_PANEL_URL` na Vercel (Fernanda). Push do PWA de quem já assinou (só a Fernanda + testes) quebra na troca de origin — reativar.
+
+**B09 (feito, NÃO deployado — sobe junto com o Tailscale):** `bot/coach.py::persona(..., light=True)` — versão enxuta pros jobs de broadcast: dropa o bloco PEDAGOGIA e encurta o guard-rail do objetivo. Aplicado em `_shared_daily`/motivação, `daily_insight`, card de fechamento (`handlers._review`), `weekly_review`, `content_planner`, `_content_idea`/classify. Guia, pílula, quiz, desafio e conversa livre seguem com a persona completa. Medido: 2337→1293 chars (~260 tokens/chamada). `py_compile` OK.
+
+**B03:** já estava feito — branches `master`/`fase-1` não existem mais, `CLAUDE.md §9` já é ponteiro pro Backlog. Só marquei no Backlog.

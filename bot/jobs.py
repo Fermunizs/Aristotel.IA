@@ -58,7 +58,7 @@ async def _shared_daily(user, kind: str, prompt_body: str, user_msg: str, temper
     cached = await db.get_cached_content(kind, day)
     if cached:
         return cached
-    text = await ask(prompts.persona() + "\n\n" + prompt_body, user_msg,
+    text = await ask(prompts.persona(light=True) + "\n\n" + prompt_body, user_msg,
                      temperature=temperature, max_tokens=220)
     return await db.save_cached_content(kind, day, text)
 
@@ -69,7 +69,7 @@ async def daily_motivation(context: ContextTypes.DEFAULT_TYPE) -> None:
         return
     note = _note(context)
     if note:  # lembrete com pedido específico → frase pra essa pessoa
-        frase = await ask(prompts.persona(user["name"], None, user["coach_tone"], user["coach_note"]) + "\n\n" + prompts.MOTIVATION + note,
+        frase = await ask(prompts.persona(user["name"], None, user["coach_tone"], user["coach_note"], light=True) + "\n\n" + prompts.MOTIVATION + note,
                           "Gere a frase de hoje.", temperature=1.0, max_tokens=200)
     else:
         frase = await _shared_daily(user, "motivation", prompts.MOTIVATION, "Gere a frase de hoje.", 1.0)
@@ -179,7 +179,7 @@ async def daily_insight(context: ContextTypes.DEFAULT_TYPE) -> None:
     # objetivos diferentes (ex.: quem quer aprender vendas recebendo insight de programação).
     plan = await db.get_plan(user["id"])
     goal = plan["goal"] if plan else None
-    texto = await ask(prompts.persona(user["name"], goal, user["coach_tone"], user["coach_note"]) + "\n\n" + prompts.INSIGHT + _note(context),
+    texto = await ask(prompts.persona(user["name"], goal, user["coach_tone"], user["coach_note"], light=True) + "\n\n" + prompts.INSIGHT + _note(context),
                       "Gere o insight de hoje.", temperature=0.9, max_tokens=260)
     await _deliver(context, user, chat, "Insight", f"🧠 *Insight*\n\n{texto}")
     await db.log_event(user["id"], "msg:insight", now_for(user).date())

@@ -32,10 +32,8 @@ O `aristotelia-backup.timer` roda diário e gzipa o dump em `~/backups/` na VM �
 **Fazer:** Fernanda cria um bucket no Oracle Object Storage + PAR (pre-authenticated request, ~3 min, guia em `scripts/systemd/README.md`) → colar em `BACKUP_UPLOAD_URL` no `.env` → rodar o script manual 1x pra confirmar que sobe.
 **Depende de:** Fernanda (bucket + PAR).
 
-### B03 · Faxina de repositório e docs — `P`
-- Apagar a branch `master` (é só o commit da Fase 0, já superado por `main`).
-- `CLAUDE.md §9` está desatualizado (fala de deploy do Fly, `/start` pendente, "popular learning_plan") → substituir por um ponteiro pra este `Backlog.md`.
-- Confirmar que `fase-1` já foi mergeada e pode sumir.
+### ~~B03 · Faxina de repositório e docs~~ — FEITO 2026-09-03
+Branches `master` e `fase-1` já não existem (local nem `origin` — só `main`). `CLAUDE.md §9` já foi reescrito como ponteiro pro `Backlog.md` (sessão de 2026-09-02). Nada a fazer.
 
 ---
 
@@ -71,8 +69,8 @@ Os dois foram implementados e deployados (2026-09-01) mas nunca confirmados por 
 
 ## P2 — Qualidade e custo (durante a validação)
 
-### B09 · Persona enxuta pros jobs de broadcast — `P` — refs F09
-O system prompt carrega ~1,2 k tokens de persona em **toda** chamada. Conteúdo compartilhado (motivação) já ameniza. Fazer versão curta da persona pros jobs genéricos; manter a completa na conversa livre e nas tarefas guiadas.
+### ~~B09 · Persona enxuta pros jobs de broadcast~~ — FEITO 2026-09-03 — refs F09
+`persona(..., light=True)` em `bot/coach.py`: dropa o bloco PEDAGOGIA (~200 tok) e encurta o guard-rail do objetivo. Aplicado em motivação, insight, card de fechamento, weekly_review, content_planner, content_classify. Guia/pílula/quiz/desafio/conversa livre seguem com a persona completa. Economia medida: 2337→1293 chars (~260 tokens/chamada de broadcast). `py_compile` OK. Deploy junto com o Tailscale.
 
 ### B10 · N+1 e queries sequenciais no painel — `P` — refs F12
 Dashboard faz várias queries em série + N+1 em algumas listas. Paralelizar (`Promise.all`) e juntar as N+1 num `JOIN`/`IN`. Só relevante quando o painel tiver uso real de várias pessoas.

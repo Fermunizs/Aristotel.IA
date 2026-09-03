@@ -352,7 +352,7 @@ async def _review(update: Update, user, text: str) -> None:
     data_str = now_for(user).strftime("%d/%m")
     plan = await db.get_plan(user["id"])
     goal = plan["goal"] if plan else None
-    card = await ask(prompts.persona(user["name"], goal, user["coach_tone"], user["coach_note"]) + "\n\n" + prompts.REVIEW_FORMAT.replace("{data}", data_str),
+    card = await ask(prompts.persona(user["name"], goal, user["coach_tone"], user["coach_note"], light=True) + "\n\n" + prompts.REVIEW_FORMAT.replace("{data}", data_str),
                      f"Resposta da pessoa:\n{text}", label=True, temperature=0.6, max_tokens=450)
     day = now_for(user).date()
     new_streak = await db.bump_streak(user["id"], day)
@@ -373,7 +373,7 @@ async def _content_confirm(update: Update, user, text: str) -> None:
 
 
 async def _content_idea(update: Update, user, text: str) -> None:
-    info = await ask_json(prompts.persona(user["name"], None, user["coach_tone"], user["coach_note"]) + "\n\n" + prompts.CONTENT_CLASSIFY, text,
+    info = await ask_json(prompts.persona(user["name"], None, user["coach_tone"], user["coach_note"], light=True) + "\n\n" + prompts.CONTENT_CLASSIFY, text,
                           max_tokens=300) or {}
     await db.add_content_idea(
         user["id"], theme=info.get("tema") or text[:60], type=info.get("tipo", ""),

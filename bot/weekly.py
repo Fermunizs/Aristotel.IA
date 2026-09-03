@@ -30,7 +30,7 @@ async def weekly_review(context: ContextTypes.DEFAULT_TYPE, *, force: bool = Fal
     )
     plan = await db.get_plan(user["id"])
     goal = plan["goal"] if plan else None
-    texto = await ask(prompts.persona(user["name"], goal, user["coach_tone"], user["coach_note"]) + "\n\n" + prompts.WEEKLY_REVIEW,
+    texto = await ask(prompts.persona(user["name"], goal, user["coach_tone"], user["coach_note"], light=True) + "\n\n" + prompts.WEEKLY_REVIEW,
                       f"Registros:\n{resumo}", label=True, temperature=0.7, max_tokens=450)
     await _deliver(context, user, chat, "Sua semana", texto)
 
@@ -50,7 +50,7 @@ async def content_planner(context: ContextTypes.DEFAULT_TYPE, *, force: bool = F
     ideias = await db.content_ideas(user["id"])
     ideias_txt = "; ".join(i["theme"] for i in ideias[:10]) or "nenhuma ainda"
     texto = await ask(
-        prompts.persona(user["name"], plan["goal"], user["coach_tone"], user["coach_note"]) + "\n\n" + prompts.CONTENT_PLANNER,
+        prompts.persona(user["name"], plan["goal"], user["coach_tone"], user["coach_note"], light=True) + "\n\n" + prompts.CONTENT_PLANNER,
         f"Tópicos da semana: {tops}\nIdeias salvas: {ideias_txt}",
         label=True, temperature=0.9, max_tokens=350,
     )

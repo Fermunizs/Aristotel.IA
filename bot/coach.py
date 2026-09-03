@@ -72,16 +72,22 @@ def persona(
     goal: str | None = None,
     tone: str | None = None,
     note: str | None = None,
+    light: bool = False,
 ) -> str:
+    """`light=True`: versão enxuta pros jobs de broadcast (motivação, insight, cards de
+    formato fixo, classificação) — dropa o bloco PEDAGOGIA e o guard-rail longo do objetivo,
+    que não valem pra mensagem que não ensina. Economiza ~350 tokens por chamada.
+    Conversa livre e tarefas guiadas (guia, pílula, quiz, desafio) usam a persona completa."""
     c = _cache
     s = (
         f"{c['identidade']}\n\n"
         f"SEU OBJETIVO: {c['objetivo']}\n\n"
         f"TOM: {c['tom']}\n\n"
         f"SEMPRE: {c['sempre']}\n\n"
-        f"PEDAGOGIA: {c.get('pedagogia', DEFAULTS['pedagogia'])}\n\n"
-        f"NUNCA (regras que valem sempre, acima de tudo): {c['nunca']}"
     )
+    if not light:
+        s += f"PEDAGOGIA: {c.get('pedagogia', DEFAULTS['pedagogia'])}\n\n"
+    s += f"NUNCA (regras que valem sempre, acima de tudo): {c['nunca']}"
     t = TONE.get(tone or "")
     if t:
         s += f"\n\n{t}"
@@ -89,7 +95,12 @@ def persona(
         s += f"\n\nPedido pessoal desta pessoa (respeite, dentro dos limites acima): {note.strip()}"
     if name:
         s += f"\n\nA pessoa se chama {name}."
-    if goal:
+    if goal and light:
+        s += (
+            f" Ela está trabalhando para: {goal}. Fique DENTRO desse objetivo; não desvie pra "
+            "assuntos técnicos não relacionados só porque uma palavra lembrou outra coisa."
+        )
+    elif goal:
         s += (
             f" Ela está trabalhando para: {goal}. TUDO que você disser fica DENTRO desse objetivo — "
             "nunca puxe a conversa pra um assunto técnico ou tópico não relacionado só porque uma "
