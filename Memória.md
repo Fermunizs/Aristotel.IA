@@ -766,4 +766,20 @@ Fernanda: "a opção da pessoa que não tem Telegram não está na landing". Sem
 
 **Falta a Fernanda:** `NEXT_PUBLIC_PANEL_URL=https://aristotelia.tailf2394c.ts.net` na Vercel + Redeploy (aí o botão "Não usa Telegram?" da landing vira cadastro real). Re-testar o push do PWA (origin mudou, subscriptions antigas morreram).
 
-`5d99828`, `2e0c00e` + o commit de docs desta leva. Git ainda não pushado (esta leva).
+`5d99828`, `2e0c00e`, `6149361` (docs + landing default).
+
+## 2026-09-03 (continuação) — trilha consultiva (feedback: namorado quer Higgsfield, saiu genérico)
+
+Fernanda: a trilha precisa ser mais consultiva/específica e a IA "deve levar informações, nada de pedir pra pessoa ler arquivos".
+
+**Onboarding vira consultivo (bot + painel):** objetivo → `ONB_DEEPEN` (LLM gera 2-3 perguntas específicas do objetivo, espera resposta) → nível → minutos → tom → **referência opcional** (link/material) → monta. `_deepen_questions()` devolve `[]` em falha → pula pro nível. Bot: novos steps `deepen`/`refs`/`retry` em `onboarding.handle`. Painel: `POST /api/onboarding/deepen` novo + 2 telas em `OnboardingFlow.tsx`. Context/refs **não persistem** — só alimentam o build (sem migration).
+
+**Prompts da trilha reescritos** (`TRILHA_PLANO`/`TRILHA_SEMANA` no bot + espelho `trilha-build.ts`): recebem contexto+refs, soltam os limites de palavra apertados, **exigem** especificidade (nome real de recurso/tela/parâmetro; se citou ferramenta, todo dia é mão nela; proibido "introdução a X"/"fundamentos"/"explorar a interface").
+
+**"Entrega, não manda ler"** em `coach.py::pedagogia` (+ espelho `persona.ts`) e reforço em `LEARNING_GUIDE`/`MICRO_LEARNING`: nunca "leia a doc/assista tutorial/pesquise" como tarefa.
+
+**Robustez de JSON truncado** (o prompt mais verboso estoura o cap de tokens do gpt-oss com reasoning): `bot/llm.py::_repair_truncated` (stack-based: fecha string + colchetes na ordem certa — o balanceador antigo por `count()` fechava errado) + espelho `coach-llm.ts::repairTruncatedJson`. `_gen_week` aceita 2+ dias e completa até 5 (mantém os dias reais que saíram) em vez de descartar. Cap 3000→3500 (retry +1500).
+
+**Testado na VM com "Higgsfield pra vídeo com IA" + contexto real:** perguntas de afinamento específicas, 4 semanas todas com passos concretos ("selecionar preset Cinematic Close-Up", "obturador 1/48s", "rotate 360° over 8s"), zero "vá ler". 1 semana truncou no 1º try, retry salvou.
+
+`py_compile` + `tsc` + `next build` OK. Bot + painel deployados e `active`. **Git ainda não pushado (esta leva).**

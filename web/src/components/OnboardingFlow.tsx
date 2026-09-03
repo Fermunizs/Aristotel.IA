@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Mark } from "@/components/art";
 import { PushToggle } from "@/components/PushToggle";
 
-type Step = 0 | 1 | 2 | 3 | "building" | "done";
+type Step = 0 | "deepen" | 1 | 2 | 3 | "refs" | "building" | "done";
 
 const LEVELS = [
   { k: "1", label: "Do zero" },
@@ -22,12 +22,40 @@ export function OnboardingFlow({ name }: { name: string }) {
   const router = useRouter();
   const [step, setStep] = useState<Step>(0);
   const [goal, setGoal] = useState("");
+  const [deepenQs, setDeepenQs] = useState<string[]>([]);
+  const [deepening, setDeepening] = useState(false);
+  const [context, setContext] = useState("");
   const [level, setLevel] = useState("");
   const [minutes, setMinutes] = useState(30);
   const [tone, setTone] = useState("");
+  const [refs, setRefs] = useState("");
   const [err, setErr] = useState("");
   const [link, setLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  async function afterGoal() {
+    setDeepening(true);
+    setErr("");
+    try {
+      const r = await fetch("/api/onboarding/deepen", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ goal }),
+      });
+      const d = await r.json();
+      const qs: string[] = Array.isArray(d.perguntas) ? d.perguntas : [];
+      if (qs.length >= 2) {
+        setDeepenQs(qs);
+        setStep("deepen");
+      } else {
+        setStep(1);
+      }
+    } catch {
+      setStep(1);
+    } finally {
+      setDeepening(false);
+    }
+  }
 
   async function finish(chosenTone: string) {
     setStep("building");
@@ -35,11 +63,11 @@ export function OnboardingFlow({ name }: { name: string }) {
     const res = await fetch("/api/onboarding", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ goal, level, minutes, tone: chosenTone }),
+      body: JSON.stringify({ goal, level, minutes, tone: chosenTone, context, refs }),
     });
     if (!res.ok) {
       setErr((await res.json()).error ?? "Não deu agora.");
-      setStep(3);
+      setStep("refs");
       return;
     }
     const l = await fetch("/api/me/link").then((r) => r.json()).catch(() => ({ link: null }));
@@ -58,8 +86,8 @@ export function OnboardingFlow({ name }: { name: string }) {
         <div className="space-y-4">
           <h1 className="text-xl">O que você quer aprender ou desenvolver?</h1>
           <p className="text-sm text-ink-soft">
-            Responde específico. Ex: &quot;JavaScript pra backend&quot;, &quot;design de produto&quot;,
-            &quot;inglês pra reuniões&quot;.
+            Responde específico. Ex: &quot;Higgsfield pra vídeo com IA&quot;, &quot;JavaScript pra
+            backend&quot;, &quot;inglês pra reuniões&quot;.
           </p>
           <textarea
             value={goal}
@@ -69,11 +97,42 @@ export function OnboardingFlow({ name }: { name: string }) {
             className="card w-full px-4 py-3 outline-none focus:border-clay"
           />
           <button
-            disabled={goal.trim().length < 3}
-            onClick={() => setStep(1)}
+            disabled={goal.trim().length < 3 || deepening}
+            onClick={afterGoal}
             className="w-full rounded-full bg-ink py-3.5 font-medium text-paper disabled:opacity-40"
           >
+            {deepening ? "Pensando nas perguntas certas…" : "Continuar"}
+          </button>
+        </div>
+      )}
+
+      {step === "deepen" && (
+        <div className="space-y-4">
+          <h1 className="text-xl">Antes de montar, me conta:</h1>
+          <ol className="list-decimal space-y-1 pl-5 text-sm text-ink">
+            {deepenQs.map((q, i) => (
+              <li key={i}>{q}</li>
+            ))}
+          </ol>
+          <textarea
+            value={context}
+            onChange={(e) => setContext(e.target.value.slice(0, 1000))}
+            autoFocus
+            rows={4}
+            placeholder="Responde tudo aqui, pode ser curto."
+            className="card w-full px-4 py-3 outline-none focus:border-clay"
+          />
+          <button
+            onClick={() => setStep(1)}
+            className="w-full rounded-full bg-ink py-3.5 font-medium text-paper"
+          >
             Continuar
+          </button>
+          <button
+            onClick={() => { setContext(""); setStep(1); }}
+            className="w-full text-center text-sm text-ink-soft"
+          >
+            pular
           </button>
         </div>
       )}
@@ -120,13 +179,37 @@ export function OnboardingFlow({ name }: { name: string }) {
             {TONES.map((t) => (
               <button
                 key={t.k}
-                onClick={() => { setTone(t.k); finish(t.k); }}
+                onClick={() => { setTone(t.k); setStep("refs"); }}
                 className="card w-full px-4 py-3 text-left hover:border-clay"
               >
                 {t.label}
               </button>
             ))}
           </div>
+        </div>
+      )}
+
+      {step === "refs" && (
+        <div className="space-y-4">
+          <h1 className="text-xl">Tem material sobre isso?</h1>
+          <p className="text-sm text-ink-soft">
+            Link, vídeo, curso ou anotação — ajuda a trilha a ficar fiel ao que a ferramenta
+            realmente faz. Opcional.
+          </p>
+          <textarea
+            value={refs}
+            onChange={(e) => setRefs(e.target.value.slice(0, 1000))}
+            autoFocus
+            rows={3}
+            placeholder="Cola aqui, ou pula."
+            className="card w-full px-4 py-3 outline-none focus:border-clay"
+          />
+          <button
+            onClick={() => finish(tone)}
+            className="w-full rounded-full bg-ink py-3.5 font-medium text-paper"
+          >
+            Montar minha trilha
+          </button>
           {err && <p className="text-sm text-clay">{err}</p>}
         </div>
       )}

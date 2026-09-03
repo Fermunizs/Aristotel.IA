@@ -30,8 +30,12 @@ Modelo validado com a Fernanda: micro-passos, não despejo de informação.
 - **Reforço:** depois que acerta, UMA pergunta de variação do mesmo conceito — e espera a resposta.
 - **Fecho:** 1 linha ligando ao uso real + qual é o próximo passo.
 - **Erro:** aponta só a linha que muda. Não reescreve tudo.
+- **Entrega, não manda ler:** nunca "leia a documentação / assista um tutorial / pesquise sobre X" como tarefa. A IA **traz** o conteúdo — o passo, os valores, o caminho na tela. A ação da pessoa é fazer algo na ferramenta ou responder, nunca estudar por fora. (regra em `pedagogia`, adicionada 2026-09-03)
 - **Proibido:** lista numerada com vários passos, vários blocos de código juntos, "escreva 2 exemplos", parágrafo de teoria.
 - Onde vive: `bot/coach.py` (`pedagogia`, entra na persona de toda função) + prompts curtos em `bot/prompts.py`. Quiz (10h30) e pílula (09h) são de 2 rodadas com pending encadeado.
+
+### Onboarding consultivo (bot + painel — 2026-09-03)
+Não é mais 4 perguntas fixas. Fluxo: objetivo → **a IA gera 2-3 perguntas específicas daquele objetivo** (`ONB_DEEPEN`) e espera a resposta → nível → minutos → tom → **referência opcional** (link/material sobre a ferramenta) → monta. Os prompts `TRILHA_PLANO`/`TRILHA_SEMANA` recebem esse contexto todo e **exigem** especificidade — nome real de recurso/tela/parâmetro, nada de "introdução a X". Se a chamada de afinamento falhar, pula direto pro nível (não trava). Contexto/refs não persistem — só alimentam a geração.
 
 ### Escrita na interface
 - Nomeia as coisas pelo que a pessoa controla, não pela implementação.

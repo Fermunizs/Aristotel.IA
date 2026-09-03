@@ -20,7 +20,8 @@ LEARNING_GUIDE = (
     "<1 frase de por que isso importa pro objetivo dela>\n"
     "'Começa por: <1 ação concreta e pequena>.'\n"
     "Máximo 4 linhas. PROIBIDO: lista numerada, mais de 1 bloco de código, "
-    "'depois faça X e Y', 'escreva N exemplos'. Só o primeiro passo."
+    "'depois faça X e Y', 'escreva N exemplos', mandar ela ler doc / assistir tutorial / "
+    "pesquisar (você entrega o passo pronto). Só o primeiro passo."
 )
 
 REVIEW_GUIDE = (
@@ -37,7 +38,8 @@ MICRO_LEARNING = (
     "com no máximo 1 exemplo de código curto (2-4 linhas). "
     "Termine com UMA pergunta que obrigue a pessoa a pensar (prever um resultado, comparar dois casos) "
     "— não decoreba. Formato da última linha: '🎯 <pergunta>'. "
-    "PROIBIDO: teoria longa, vários exemplos, lista de tópicos, link/fonte."
+    "PROIBIDO: teoria longa, vários exemplos, lista de tópicos, link/fonte, mandar consultar algo "
+    "externo — a explicação é sua, entregue pronta."
 )
 
 QUIZ = (
@@ -114,18 +116,40 @@ ONB_LEVEL = (
 )
 ONB_MINUTES = "Quantos minutos por dia você consegue de verdade? (ex: 20, 30, 60)"
 
+ONB_DEEPEN = (
+    "A pessoa disse o que quer aprender (abaixo). Antes de montar a trilha, faça 2 a 3 perguntas "
+    "curtas pra afinar — como uma consultora faria numa primeira conversa. "
+    "As perguntas têm que ser ESPECÍFICAS desse objetivo (nada de genérico tipo 'qual seu nível'), "
+    "respondíveis em 1 linha cada, e no conjunto cobrir: pra que ela vai usar isso na prática · "
+    "o que ela já conhece de parecido · qual o primeiro resultado concreto que ela quer. "
+    "Se o objetivo cita uma ferramenta ou produto, pergunte sobre o uso real dela. "
+    "Retorne SOMENTE JSON: {\"perguntas\":[\"...\",\"...\"]}"
+)
+
 TRILHA_PLANO = (
-    "Planeje uma trilha de 4 semanas para o objetivo/nível/tempo da pessoa. "
-    "Progressão real: fundamentos → aplicação. "
-    "Retorne SOMENTE JSON: {\"themes\":[\"tema semana 1\",\"tema semana 2\",\"tema semana 3\",\"tema semana 4\"]} "
-    "— cada tema com até 6 palavras."
+    "Você é consultora montando a trilha de 4 semanas de UMA pessoa específica. "
+    "Recebe: objetivo, nível, minutos/dia, o contexto que ela deu (uso prático, o que já conhece, "
+    "o resultado que quer) e qualquer material de referência que ela colou. "
+    "Progressão do concreto pro avançado — nunca 'fundamentos genéricos'. "
+    "Se ela citou uma ferramenta/produto, os temas são sobre USAR essa ferramenta pra chegar no "
+    "resultado dela, não teoria ao redor. "
+    "Cada tema: específico, com o nome real do que vai ser feito "
+    "(ex.: 'Primeiro clipe com image-to-video e controle de câmera', não 'Introdução a vídeo com IA'). "
+    "Até 9 palavras. "
+    "Retorne SOMENTE JSON: {\"themes\":[\"...\",\"...\",\"...\",\"...\"]}"
 )
 
 TRILHA_SEMANA = (
-    "Detalhe UMA semana de uma trilha de aprendizagem. Você recebe: objetivo, nível, minutos/dia, "
-    "o número e o tema desta semana, e os temas de todas as 4 semanas (pra manter a progressão). "
-    "5 dias. Cada dia = tópico ESPECÍFICO (até 10 palavras) + ação concreta cabível no tempo (até 12 palavras). "
-    "Nada genérico. Retorne SOMENTE JSON: "
+    "Detalhe UMA semana da trilha desta pessoa. Você recebe: objetivo, nível, minutos/dia, o contexto "
+    "que ela deu, o material de referência, o número e o tema desta semana e os temas das 4 semanas. "
+    "5 dias. Cada dia:\n"
+    "- topic: o que ela vai fazer nesse dia, ESPECÍFICO — nome real de recurso, tela, parâmetro ou "
+    "técnica (até 14 palavras). Proibido genérico: 'introdução a X', 'entender os fundamentos', "
+    "'explorar a interface', 'pesquisar sobre'.\n"
+    "- goal: a ação concreta que cabe nos minutos/dia + o resultado esperado (até 22 palavras).\n"
+    "Se a pessoa citou uma ferramenta específica, TODO dia é mão na ferramenta produzindo algo — "
+    "nunca teoria solta. Seja fiel ao que a ferramenta realmente faz (use o material de referência). "
+    "Retorne SOMENTE JSON: "
     '{"n":N,"theme":"...","days":[{"d":1,"topic":"...","goal":"..."}, ...5 dias]}'
 )
 

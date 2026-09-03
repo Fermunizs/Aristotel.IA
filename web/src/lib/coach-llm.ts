@@ -191,12 +191,42 @@ async function chat(messages: Msg[], maxTokens: number, meta: Meta): Promise<str
   throw new Error(`todos os provedores falharam: ${last}`);
 }
 
-/** Extrai o primeiro objeto JSON de um texto (o modelo às vezes embrulha em ```). */
+/** Extrai o primeiro objeto JSON de um texto (o modelo às vezes embrulha em ``` ou corta no fim). */
 function parseJson(raw: string): unknown {
-  const start = raw.indexOf("{");
-  const end = raw.lastIndexOf("}");
-  if (start === -1 || end === -1) throw new Error("sem JSON na resposta");
-  return JSON.parse(raw.slice(start, end + 1));
+  let s = (raw ?? "").trim();
+  if (s.startsWith("```")) s = s.replace(/^```(?:json)?/i, "").replace(/```\s*$/, "").trim();
+  const start = s.indexOf("{");
+  if (start === -1) throw new Error("sem JSON na resposta");
+  const end = s.lastIndexOf("}");
+  const cand = end > start ? s.slice(start, end + 1) : s.slice(start);
+  try {
+    return JSON.parse(cand);
+  } catch {
+    return JSON.parse(repairTruncatedJson(cand));
+  }
+}
+
+/** Fecha string/colchetes abertos quando a resposta do LLM veio cortada (limite de tokens). */
+function repairTruncatedJson(s: string): string {
+  const stack: string[] = [];
+  let inStr = false;
+  let esc = false;
+  for (const ch of s) {
+    if (inStr) {
+      if (esc) esc = false;
+      else if (ch === "\\") esc = true;
+      else if (ch === '"') inStr = false;
+      continue;
+    }
+    if (ch === '"') inStr = true;
+    else if (ch === "{" || ch === "[") stack.push(ch);
+    else if (ch === "}" || ch === "]") stack.pop();
+  }
+  let f = s;
+  if (inStr) f += '"';
+  f = f.replace(/,\s*$/, "");
+  while (stack.length) f += stack.pop() === "{" ? "}" : "]";
+  return f;
 }
 
 export async function groqJson<T>(

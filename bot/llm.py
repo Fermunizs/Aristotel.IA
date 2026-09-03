@@ -217,11 +217,34 @@ def _parse_json(raw: str) -> dict | None:
     try:
         return json.loads(candidate)
     except json.JSONDecodeError:
-        fixed = candidate.rstrip().rstrip(",")
-        for _ in range(fixed.count("{") - fixed.count("}") + fixed.count("[") - fixed.count("]")):
-            fixed += "]" if fixed.rfind("[") > fixed.rfind("{") else "}"
         try:
-            return json.loads(fixed)
+            return json.loads(_repair_truncated(candidate))
         except json.JSONDecodeError:
             log.warning("Resposta do LLM não é JSON: %r", candidate[:200])
             return None
+
+
+def _repair_truncated(s: str) -> str:
+    """Fecha string/colchetes abertos quando a resposta veio cortada (limite de tokens)."""
+    stack: list[str] = []
+    in_str = esc = False
+    for ch in s:
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+            continue
+        if ch == '"':
+            in_str = True
+        elif ch in "{[":
+            stack.append(ch)
+        elif ch in "}]" and stack:
+            stack.pop()
+    fixed = s + ('"' if in_str else "")
+    fixed = fixed.rstrip().rstrip(",")
+    for opener in reversed(stack):
+        fixed += "}" if opener == "{" else "]"
+    return fixed

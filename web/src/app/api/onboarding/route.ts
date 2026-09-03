@@ -38,11 +38,13 @@ export async function POST(req: Request) {
   const level = LEVELS[String(b.level)] ?? "do zero";
   const minutes = Math.max(10, Math.min(180, parseInt(String(b.minutes), 10) || 30));
   const tone = TONES.has(b.tone) ? b.tone : "equilibrada";
+  const context = String(b.context ?? "").trim().slice(0, 1000);
+  const refs = String(b.refs ?? "").trim().slice(0, 1000);
   if (goal.length < 3) return NextResponse.json({ error: "diz o que você quer aprender" }, { status: 400 });
 
   let weeks;
   try {
-    weeks = await buildTrilha(user.name ?? "", goal, level, minutes, user.id);
+    weeks = await buildTrilha(user.name ?? "", goal, level, minutes, user.id, context, refs);
   } catch (e) {
     console.error("onboarding buildTrilha", e);
     weeks = null;

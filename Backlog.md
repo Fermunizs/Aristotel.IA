@@ -166,3 +166,7 @@ Hoje o quiz/desafio/review manda a notificação mas o `pending` só é consumid
 | — | Otimização de RAM da VM: swap 3 GB, fwupd/multipathd off, caps de heap/malloc, PG max_conn 25 (−65 MB, swap 288→65) | 2026-09-02 |
 | B22 | Auditoria de integridade do banco + migration `0013` (índice único 1-trilha-ativa, dedup de tarefa, backfill de linhas-filhas, `create_plan` transacional). Isolamento entre usuários verificado OK. (`fd504aa`) | 2026-09-02 |
 | B23 | **Acesso sem Telegram** — migration `0014`, cadastro web (nome+email) + link pessoal (token 256 bits, troca por cookie), onboarding no painel (`/onboarding` + `trilha-build.ts`), bot agenda usuários só-push, webhook Kiwify (`/api/webhook/kiwify`, casa por e-mail), LP atualizada. Testado ponta a ponta em produção. (`ea82439`, `abc310d`) | 2026-09-02 |
+| B01 | **URL estável do painel** — Tailscale Funnel (`aristotelia.tailf2394c.ts.net`), fim do quick tunnel + `arist-url-sync`. `CLAUDE.md §6`. | 2026-09-03 |
+| B09 | Persona enxuta nos jobs de broadcast (`persona(light=True)`, ~260 tok/chamada) (`5d99828`) | 2026-09-03 |
+| — | `/start` explica o painel + tom "durona" endurecido (`2e0c00e`) | 2026-09-03 |
+| — | **Onboarding consultivo** — `ONB_DEEPEN` (2-3 perguntas adaptativas) + referência opcional + prompts de trilha exigindo especificidade + "entrega, não manda ler" na pedagogia. Robustez de JSON truncado (`_repair_truncated` stack-based). Testado com Higgsfield. | 2026-09-03 |

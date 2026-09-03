@@ -4,16 +4,28 @@ import { buildPersona } from "./persona";
 import { groqJson } from "./coach-llm";
 
 const TRILHA_PLANO =
-  "Planeje uma trilha de 4 semanas para o objetivo/nível/tempo da pessoa. " +
-  "Progressão real: fundamentos → aplicação. " +
-  'Retorne SOMENTE JSON: {"themes":["tema semana 1","tema semana 2","tema semana 3","tema semana 4"]} ' +
-  "— cada tema com até 6 palavras.";
+  "Você é consultora montando a trilha de 4 semanas de UMA pessoa específica. " +
+  "Recebe: objetivo, nível, minutos/dia, o contexto que ela deu (uso prático, o que já conhece, " +
+  "o resultado que quer) e qualquer material de referência que ela colou. " +
+  "Progressão do concreto pro avançado — nunca 'fundamentos genéricos'. " +
+  "Se ela citou uma ferramenta/produto, os temas são sobre USAR essa ferramenta pra chegar no " +
+  "resultado dela, não teoria ao redor. " +
+  "Cada tema: específico, com o nome real do que vai ser feito " +
+  "(ex.: 'Primeiro clipe com image-to-video e controle de câmera', não 'Introdução a vídeo com IA'). " +
+  "Até 9 palavras. " +
+  'Retorne SOMENTE JSON: {"themes":["...","...","...","..."]}';
 
 const TRILHA_SEMANA =
-  "Detalhe UMA semana de uma trilha de aprendizagem. Você recebe: objetivo, nível, minutos/dia, " +
-  "o número e o tema desta semana, e os temas de todas as 4 semanas (pra manter a progressão). " +
-  "5 dias. Cada dia = tópico ESPECÍFICO (até 10 palavras) + ação concreta cabível no tempo (até 12 palavras). " +
-  "Nada genérico. Retorne SOMENTE JSON: " +
+  "Detalhe UMA semana da trilha desta pessoa. Você recebe: objetivo, nível, minutos/dia, o contexto " +
+  "que ela deu, o material de referência, o número e o tema desta semana e os temas das 4 semanas. " +
+  "5 dias. Cada dia:\n" +
+  "- topic: o que ela vai fazer nesse dia, ESPECÍFICO — nome real de recurso, tela, parâmetro ou " +
+  "técnica (até 14 palavras). Proibido genérico: 'introdução a X', 'entender os fundamentos', " +
+  "'explorar a interface', 'pesquisar sobre'.\n" +
+  "- goal: a ação concreta que cabe nos minutos/dia + o resultado esperado (até 22 palavras).\n" +
+  "Se a pessoa citou uma ferramenta específica, TODO dia é mão na ferramenta produzindo algo — " +
+  "nunca teoria solta. Seja fiel ao que a ferramenta realmente faz (use o material de referência). " +
+  "Retorne SOMENTE JSON: " +
   '{"n":N,"theme":"...","days":[{"d":1,"topic":"...","goal":"..."}, ...5 dias]}';
 
 type Day = { d: number; topic: string; goal: string };
@@ -34,12 +46,15 @@ async function genWeekOnce(persona: string, payload: string, n: number, themes: 
       meta,
     );
     const days = wk?.days;
-    if (!Array.isArray(days) || days.length < 3) return null;
-    return {
-      n,
-      theme: String(wk.theme || themes[n - 1]).slice(0, 80),
-      days: days.slice(0, 5).map((d, i) => ({ d: i + 1, topic: String(d.topic), goal: String(d.goal ?? "") })),
-    };
+    if (!Array.isArray(days) || days.length < 2) return null;
+    const theme = String(wk.theme || themes[n - 1]).slice(0, 80);
+    const out = days.slice(0, 5).map((d, i) => ({
+      d: i + 1,
+      topic: String(d.topic || `${theme} — parte ${i + 1}`),
+      goal: String(d.goal ?? ""),
+    }));
+    while (out.length < 5) out.push({ d: out.length + 1, topic: `${theme} — continuação ${out.length + 1}`, goal: "" });
+    return { n, theme, days: out };
   } catch {
     return null;
   }
@@ -51,8 +66,8 @@ async function genWeek(persona: string, base: string, themes: string[], n: numbe
     `Detalhe a semana ${n}, tema: ${themes[n - 1]}`;
   // 1 retry com mais tokens antes de desistir — espelha bot/llm.py::generate_json
   return (
-    (await genWeekOnce(persona, payload, n, themes, 2500, meta)) ||
-    (await genWeekOnce(persona, payload, n, themes, 4000, meta))
+    (await genWeekOnce(persona, payload, n, themes, 3500, meta)) ||
+    (await genWeekOnce(persona, payload, n, themes, 4500, meta))
   );
 }
 
@@ -63,9 +78,13 @@ export async function buildTrilha(
   level: string,
   minutes: number,
   userId: string,
+  context = "",
+  refs = "",
 ): Promise<Week[] | null> {
   const persona = await buildPersona({ name });
-  const base = `Objetivo: ${goal}\nNível: ${level}\nMinutos por dia: ${minutes}`;
+  let base = `Objetivo: ${goal}\nNível: ${level}\nMinutos por dia: ${minutes}`;
+  if (context.trim()) base += `\nContexto da pessoa: ${context.trim().slice(0, 800)}`;
+  if (refs.trim()) base += `\nMaterial de referência que ela colou: ${refs.trim().slice(0, 800)}`;
   const meta: Meta = { userId, tag: "trilha" };
 
   let themes: string[] = [];

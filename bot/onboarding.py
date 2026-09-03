@@ -24,10 +24,27 @@ log = logging.getLogger("aristotelia.onboarding")
 _LEVELS = {"1": "do zero", "2": "sei o básico", "3": "intermediário, quero aprofundar"}
 _TONES = {"1": "gentil", "2": "equilibrada", "3": "durona"}
 _MAX_BUILD_ATTEMPTS = 3
+_SKIP_WORDS = ("pular", "pula", "skip", "não", "nao", "-", "nada", "n")
 ONB_TONE = (
-    "Última: como você quer que eu te cobre?\n\n"
+    "Como você quer que eu te cobre?\n\n"
     "1 — gentil, no meu ritmo\n2 — equilibrada\n3 — durona: pega no pé de verdade, sem amaciar"
 )
+ONB_REFS = (
+    "Última: tem algum link, vídeo, curso ou anotação sobre isso? Cola aqui — ajuda a trilha a "
+    "ficar fiel ao que a ferramenta realmente faz.\n\nSe não tiver, manda *pular*."
+)
+
+
+async def _deepen_questions(name: str | None, goal: str) -> list[str]:
+    """2-3 perguntas de afinamento específicas do objetivo. [] se o LLM não colaborar
+    (aí o onboarding pula direto pro nível)."""
+    try:
+        data = await ask_json(prompts.persona(name) + "\n\n" + prompts.ONB_DEEPEN, goal, max_tokens=400)
+        qs = [str(q).strip() for q in (data or {}).get("perguntas", []) if str(q).strip()]
+        return qs[:3] if len(qs) >= 2 else []
+    except Exception:  # noqa: BLE001
+        log.exception("_deepen_questions falhou p/ objetivo %r", goal[:80])
+        return []
 
 
 def _stub_week(n: int, theme: str) -> dict:
@@ -43,24 +60,30 @@ def _stub_week(n: int, theme: str) -> dict:
 
 async def _gen_week(name: str | None, base: str, themes: list, n: int) -> dict | None:
     payload = f"{base}\nTemas das 4 semanas: {themes}\nDetalhe a semana {n}, tema: {themes[n - 1]}"
-    wk = await ask_json(prompts.persona(name) + "\n\n" + prompts.TRILHA_SEMANA, payload, max_tokens=2500)
+    wk = await ask_json(prompts.persona(name) + "\n\n" + prompts.TRILHA_SEMANA, payload, max_tokens=3500)
     days = (wk or {}).get("days")
-    if not days or len(days) < 3:
+    if not days or len(days) < 2:
         return None
-    return {
-        "n": n,
-        "theme": (wk.get("theme") or themes[n - 1])[:80],
-        "days": [{"d": i + 1, "topic": d["topic"], "goal": d.get("goal", "")}
-                 for i, d in enumerate(days[:5])],
-    }
+    theme = (wk.get("theme") or themes[n - 1])[:80]
+    out = [{"d": i + 1, "topic": str(d.get("topic") or f"{theme} — parte {i + 1}"),
+            "goal": str(d.get("goal", ""))}
+           for i, d in enumerate(days[:5])]
+    while len(out) < 5:  # veio cortado — completa mantendo os dias reais que saíram
+        out.append({"d": len(out) + 1, "topic": f"{theme} — continuação {len(out) + 1}", "goal": ""})
+    return {"n": n, "theme": theme, "days": out}
 
 
-async def build_trilha(name: str | None, goal: str, level: str, minutes: int) -> list | None:
+async def build_trilha(name: str | None, goal: str, level: str, minutes: int,
+                       context: str = "", refs: str = "") -> list | None:
     """Gera a trilha semana a semana (evita o limite de tokens/min do Groq free).
 
     Devolve None só se NENHUMA semana saiu (LLM totalmente fora) — aí o chamador
     agenda retry. Semana isolada que falha vira _stub_week."""
     base = f"Objetivo: {goal}\nNível: {level}\nMinutos por dia: {minutes}"
+    if context.strip():
+        base += f"\nContexto da pessoa: {context.strip()[:800]}"
+    if refs.strip():
+        base += f"\nMaterial de referência que ela colou: {refs.strip()[:800]}"
     plano = await ask_json(prompts.persona(name) + "\n\n" + prompts.TRILHA_PLANO, base, max_tokens=1200)
     themes = (plano or {}).get("themes") or []
     if len(themes) < 4:
@@ -84,7 +107,7 @@ async def build_trilha(name: str | None, goal: str, level: str, minutes: int) ->
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE, user) -> None:
     await db.set_pending(user["id"], {"type": "onboarding", "step": "goal", "answers": {}})
     await send_text(context.bot, user["telegram_chat_id"],
-                    "🌅 Bom te ver aqui. Vou montar seu plano em 4 perguntas.\n\n" + prompts.ONB_GOAL)
+                    "🌅 Bom te ver aqui. Vou te fazer umas perguntas e montar seu plano.\n\n" + prompts.ONB_GOAL)
 
 
 async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE, user, pending: dict) -> None:
@@ -98,8 +121,26 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE, user, pendi
         await send_text(context.bot, chat, "⏳ Tô montando tua trilha, chega já.")
         return
 
+    if step == "retry":
+        # build estourou 3x — qualquer mensagem retenta, sem sobrescrever resposta
+        await _finish(context, user, answers)
+        return
+
     if step == "goal":
         answers["goal"] = text
+        await send_text(context.bot, chat, "Boa. Deixa eu entender melhor antes de montar…")
+        qs = await _deepen_questions(user["name"], text)
+        if qs:
+            await db.set_pending(user["id"], {"type": "onboarding", "step": "deepen", "answers": answers})
+            numbered = "\n".join(f"{i}. {q}" for i, q in enumerate(qs, 1))
+            await send_text(context.bot, chat,
+                            f"Me responde numa mensagem só (pode ser curto):\n\n{numbered}")
+        else:
+            await db.set_pending(user["id"], {"type": "onboarding", "step": "level", "answers": answers})
+            await send_text(context.bot, chat, prompts.ONB_LEVEL)
+
+    elif step == "deepen":
+        answers["context"] = text[:1000]
         await db.set_pending(user["id"], {"type": "onboarding", "step": "level", "answers": answers})
         await send_text(context.bot, chat, prompts.ONB_LEVEL)
 
@@ -117,6 +158,11 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE, user, pendi
 
     elif step == "tone":
         answers["tone"] = _TONES.get(next((c for c in text if c in "123"), "2"), "equilibrada")
+        await db.set_pending(user["id"], {"type": "onboarding", "step": "refs", "answers": answers})
+        await send_text(context.bot, chat, ONB_REFS)
+
+    elif step == "refs":
+        answers["refs"] = "" if text.strip().lower() in _SKIP_WORDS else text[:1000]
         await _finish(context, user, answers)
 
 
@@ -137,7 +183,8 @@ async def _finish(context: ContextTypes.DEFAULT_TYPE, user, answers: dict, attem
     usage.set_context(user["id"], "trilha")
 
     try:
-        weeks = await build_trilha(user["name"], answers["goal"], answers["level"], answers["minutes"])
+        weeks = await build_trilha(user["name"], answers["goal"], answers["level"], answers["minutes"],
+                                   answers.get("context", ""), answers.get("refs", ""))
     except Exception:  # noqa: BLE001
         log.exception("build_trilha explodiu (tentativa %d) p/ %s", attempt, user["id"])
         weeks = None
@@ -158,8 +205,8 @@ async def _finish(context: ContextTypes.DEFAULT_TYPE, user, answers: dict, attem
 async def _schedule_retry(context: ContextTypes.DEFAULT_TYPE, user, answers: dict, attempt: int) -> None:
     chat = user["telegram_chat_id"]
     if attempt >= _MAX_BUILD_ATTEMPTS or context.job_queue is None:
-        # volta pro step 'tone': a próxima mensagem dela retenta na hora
-        await db.set_pending(user["id"], {"type": "onboarding", "step": "tone", "answers": answers})
+        # step 'retry': a próxima mensagem dela retenta na hora, sem sobrescrever resposta
+        await db.set_pending(user["id"], {"type": "onboarding", "step": "retry", "answers": answers})
         await send_text(context.bot, chat,
                         "O gerador de trilha tá congestionado agora. Me manda qualquer mensagem "
                         "daqui a alguns minutos que eu tento de novo (ou /recomecar).")
