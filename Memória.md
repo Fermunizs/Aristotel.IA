@@ -756,4 +756,14 @@ Fernanda: "a opção da pessoa que não tem Telegram não está na landing". Sem
 1. **`/start` não falava do painel.** A mensagem de trilha-pronta (`onboarding._activate`) e o `/painel` (`handlers.cmd_painel`) agora explicam o painel web (checklist, foco, árvore de evolução, trilha desenhada) e como abrir (`{WEB_URL}/entrar` + código).
 2. **Tom "durona" endurecido.** Feedback: "tem que cobrar real". `TONE["durona"]` em `bot/coach.py` + espelho em `web/src/lib/persona.ts`: seca, sem amaciante, "um pouco grossa até", chama a folga/desculpa na cara. **Piso embutido:** ataca a folga, nunca a pessoa (sem xingar/humilhar/mexer com inteligência ou caráter). Labels de onboarding/ajustes (bot + `OnboardingFlow.tsx` + `AjustesForm.tsx`) atualizadas: "pega no pé de verdade, sem amaciar". `Design.md §Tom` ganhou a seção dos 3 registros.
 
-`py_compile` + `tsc --noEmit` + `next build` OK. Bot e painel deployados e `active`, scheduler ok, 0 erro no log. Commits: `5d99828` (B09) + o desta leva. **Falta:** push do git; Tailscale (Fernanda ainda não autenticou — link `https://login.tailscale.com/a/152798bf01089e`, pode ter expirado).
+`py_compile` + `tsc --noEmit` + `next build` OK. Bot e painel deployados e `active`, scheduler ok, 0 erro no log. Commits: `5d99828` (B09) + `2e0c00e` (/start + durona).
+
+**Tailscale Funnel — B01 FECHADO.** Fernanda autenticou o node `aristotelia` (owner dela) e habilitou o Funnel no tailnet (`login.tailscale.com/f/funnel?node=...`). Na VM:
+- `tailscale funnel --bg localhost:3000` → **`https://aristotelia.tailf2394c.ts.net`** fixa, cert Let's Encrypt válido, config persistida no state do `tailscaled` (que é `enabled` → sobe no boot).
+- **Cuidado que custou tempo:** matar o `tailscale funnel` no meio do provisionamento do cert deixa config meia-boca → handshake TLS falha intermitente. `tailscale funnel reset && tailscale serve reset` + re-adicionar limpo resolveu. Depois: 10/10 requests externos OK a ~0,9s.
+- `WEB_URL` (`~/aristotelia/.env`) e `PANEL_URL` (novo em `~/aristotelia-web/web.env`) = a URL. `arist-tunnel.service` + `arist-url-sync.timer` → `disable --now` (plano B, ver `CLAUDE.md §6`). Bot + web reiniciados.
+- Latência ~0,9s/request (VM 1 vCPU + relay do Funnel) — aceitável, não ótimo.
+
+**Falta a Fernanda:** `NEXT_PUBLIC_PANEL_URL=https://aristotelia.tailf2394c.ts.net` na Vercel + Redeploy (aí o botão "Não usa Telegram?" da landing vira cadastro real). Re-testar o push do PWA (origin mudou, subscriptions antigas morreram).
+
+`5d99828`, `2e0c00e` + o commit de docs desta leva. Git ainda não pushado (esta leva).

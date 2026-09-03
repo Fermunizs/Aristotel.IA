@@ -22,10 +22,9 @@ Esforço: **P** pequeno (<½ dia) · **M** médio (1–2 dias) · **G** grande (
 
 ## P0 — Confiabilidade (fazer já)
 
-### B01 · Domínio próprio + túnel nomeado — `M` — refs F05
-Hoje o painel roda num Cloudflare **quick tunnel** (`*.trycloudflare.com`): a URL **muda sozinha** quando o serviço reinicia. Isso quebra (a) o `WEB_URL` que o bot manda nos links, (b) o service worker / push do PWA (origin muda → subscription morre). Um `arist-url-sync.timer` remenda o `WEB_URL` a cada 2 min, mas é gambiarra.
-**Fazer:** registrar um domínio (ou subdomínio) → Cloudflare **named tunnel** (`cloudflared tunnel create` + credenciais fixas + rota DNS) → `WEB_URL` fixo no `.env` e no `web.env` → aposentar o `arist-url-sync.timer`. Conferir manifest/SW do PWA na origin nova.
-**Depende de:** Fernanda escolher/registrar o domínio.
+### ~~B01 · URL estável do painel~~ — FEITO 2026-09-03 (Tailscale Funnel) — refs F05
+Era: quick tunnel Cloudflare com URL que mudava sozinha + `arist-url-sync.timer` (gambiarra). Agora: **Tailscale Funnel** → `https://aristotelia.tailf2394c.ts.net` **fixa**, grátis, sem domínio. `WEB_URL` (`.env`) + `PANEL_URL` (`web.env`) fixados; `arist-tunnel.service` + `arist-url-sync.timer` desabilitados (plano B). Detalhe em `CLAUDE.md §6`.
+**Falta:** `NEXT_PUBLIC_PANEL_URL` na Vercel (Fernanda) · re-testar push/SW do PWA na origin nova (as subscriptions antigas morreram na troca — só Fernanda + testes). Domínio próprio bonito (`.ts.net` funciona mas é feio pra vender) segue como melhoria futura, não bloqueia.
 
 ### B02 · Backup off-site do Postgres — `P` — refs F02
 O `aristotelia-backup.timer` roda diário e gzipa o dump em `~/backups/` na VM — mas `BACKUP_UPLOAD_URL` está **vazio**. Se o disco/VM morrer, perde tudo. O `scripts/backup-db.sh` já suporta PUT numa URL pré-assinada.

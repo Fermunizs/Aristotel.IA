@@ -5,8 +5,8 @@ import { TrilhaPreview } from "@/components/TrilhaPreview";
 
 const BOT = process.env.NEXT_PUBLIC_BOT || "AristotelIA_bot";
 const TG = `https://t.me/${BOT}`;
-// painel (túnel/domínio) — setar em Environment Variables (Vercel)
-const PANEL = process.env.NEXT_PUBLIC_PANEL_URL || TG;
+// painel — URL fixa via Tailscale Funnel (CLAUDE.md §6). Override por NEXT_PUBLIC_PANEL_URL na Vercel.
+const PANEL = process.env.NEXT_PUBLIC_PANEL_URL || "https://aristotelia.tailf2394c.ts.net";
 const ENTRAR = PANEL === TG ? TG : `${PANEL.replace(/\/$/, "")}/entrar`;
 
 const PILLARS = [

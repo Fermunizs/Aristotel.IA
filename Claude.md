@@ -182,6 +182,8 @@ Depois, no Telegram, mandar `/start` para o bot.
 Roda `/home/ubuntu/aristotelia/.venv/bin/python -m bot.main` em `/home/ubuntu/aristotelia` (Python 3.10).
 O painel web é outro serviço: `aristotelia-web.service` (Node 20, `~/aristotelia-web`), deploy via `bash scripts/deploy-web.sh`.
 
+**URL pública do painel (desde 2026-09-03):** `https://aristotelia.tailf2394c.ts.net` — **Tailscale Funnel** (`tailscale funnel --bg localhost:3000`, config persistida no state do `tailscaled`, sobe no boot). URL **fixa** — fim da gambiarra do quick tunnel. Fixada em `WEB_URL` (`~/aristotelia/.env`) e `PANEL_URL` (`~/aristotelia-web/web.env`). Na Vercel: `NEXT_PUBLIC_PANEL_URL` = essa URL. O `arist-tunnel.service` (cloudflared) + `arist-url-sync.timer` ficam **desabilitados** (plano B — `systemctl enable --now` os dois + trocar `WEB_URL` de volta se o Funnel cair). Habilitar Funnel de novo num tailnet novo: `tailscale funnel` mostra o link `login.tailscale.com/f/funnel?node=...`.
+
 **Acesso SSH** (chave privada em `C:\Users\DELL\.ssh\aristotelia_oracle`):
 
 ```powershell
