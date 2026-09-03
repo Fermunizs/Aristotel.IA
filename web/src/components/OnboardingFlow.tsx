@@ -15,7 +15,7 @@ const LEVELS = [
 const TONES = [
   { k: "gentil", label: "Gentil, no meu ritmo" },
   { k: "equilibrada", label: "Equilibrada" },
-  { k: "durona", label: "Durona, sem passar a mão na cabeça" },
+  { k: "durona", label: "Durona: pega no pé de verdade, sem amaciar" },
 ];
 
 export function OnboardingFlow({ name }: { name: string }) {

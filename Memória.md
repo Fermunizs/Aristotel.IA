@@ -751,3 +751,9 @@ Fernanda: "a opção da pessoa que não tem Telegram não está na landing". Sem
 **B09 (feito, NÃO deployado — sobe junto com o Tailscale):** `bot/coach.py::persona(..., light=True)` — versão enxuta pros jobs de broadcast: dropa o bloco PEDAGOGIA e encurta o guard-rail do objetivo. Aplicado em `_shared_daily`/motivação, `daily_insight`, card de fechamento (`handlers._review`), `weekly_review`, `content_planner`, `_content_idea`/classify. Guia, pílula, quiz, desafio e conversa livre seguem com a persona completa. Medido: 2337→1293 chars (~260 tokens/chamada). `py_compile` OK.
 
 **B03:** já estava feito — branches `master`/`fase-1` não existem mais, `CLAUDE.md §9` já é ponteiro pro Backlog. Só marquei no Backlog.
+
+**Dois ajustes pedidos pela Fernanda (feitos + deployados — bot + painel):**
+1. **`/start` não falava do painel.** A mensagem de trilha-pronta (`onboarding._activate`) e o `/painel` (`handlers.cmd_painel`) agora explicam o painel web (checklist, foco, árvore de evolução, trilha desenhada) e como abrir (`{WEB_URL}/entrar` + código).
+2. **Tom "durona" endurecido.** Feedback: "tem que cobrar real". `TONE["durona"]` em `bot/coach.py` + espelho em `web/src/lib/persona.ts`: seca, sem amaciante, "um pouco grossa até", chama a folga/desculpa na cara. **Piso embutido:** ataca a folga, nunca a pessoa (sem xingar/humilhar/mexer com inteligência ou caráter). Labels de onboarding/ajustes (bot + `OnboardingFlow.tsx` + `AjustesForm.tsx`) atualizadas: "pega no pé de verdade, sem amaciar". `Design.md §Tom` ganhou a seção dos 3 registros.
+
+`py_compile` + `tsc --noEmit` + `next build` OK. Bot e painel deployados e `active`, scheduler ok, 0 erro no log. Commits: `5d99828` (B09) + o desta leva. **Falta:** push do git; Tailscale (Fernanda ainda não autenticou — link `https://login.tailscale.com/a/152798bf01089e`, pode ter expirado).

@@ -26,7 +26,7 @@ _TONES = {"1": "gentil", "2": "equilibrada", "3": "durona"}
 _MAX_BUILD_ATTEMPTS = 3
 ONB_TONE = (
     "Última: como você quer que eu te cobre?\n\n"
-    "1 — gentil, no meu ritmo\n2 — equilibrada\n3 — durona, sem passar a mão na cabeça"
+    "1 — gentil, no meu ritmo\n2 — equilibrada\n3 — durona: pega no pé de verdade, sem amaciar"
 )
 
 
@@ -210,7 +210,10 @@ async def _activate(context: ContextTypes.DEFAULT_TYPE, user, plan: dict) -> Non
         f"✅ Trilha pronta: *{len(plan['weeks'])} semanas*.\n\n"
         f"*Semana 1 — {w1['theme']}*\n"
         f"Começa hoje: {d1['topic']}\n_{d1.get('goal', '')}_\n\n"
-        "Todo dia eu te mando: motivação (06h), o que estudar (08h), pílula (09h), "
+        "Todo dia eu te mando aqui: motivação (06h), o que estudar (08h), pílula (09h), "
         "quiz (10h30), insight (15h), desafio (16h) e o fechamento (20h).\n\n"
+        "📊 *E tem um painel web:* a checklist do dia, o cronômetro de foco, a árvore de "
+        "evolução e a trilha inteira desenhada — dá pra marcar tarefa, ver o progresso e "
+        "mexer nos horários por lá. Manda /painel que eu te passo o link e o código.\n\n"
         "Comandos: /hoje /jasei /plano /status /foco /painel /pausar /recomecar",
     )

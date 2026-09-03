@@ -185,7 +185,13 @@ async def _focus_done(context: ContextTypes.DEFAULT_TYPE) -> None:
 async def cmd_painel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = await _me(update)
     code = await db.create_auth_code(user["id"])
-    await _reply(update, f"🔑 Seu código (vale 10 min):\n\n`{code}`\n\nEntra em {config.WEB_URL}")
+    await _reply(
+        update,
+        "🔑 *Painel web* — checklist do dia, cronômetro de foco, árvore de evolução e a "
+        "trilha inteira desenhada.\n\n"
+        f"1. Abre {config.WEB_URL}/entrar\n"
+        f"2. Cola este código (vale 10 min):\n\n`{code}`",
+    )
 
 
 # ── roteamento de texto ─────────────────────────────────────────────

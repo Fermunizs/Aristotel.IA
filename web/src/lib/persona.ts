@@ -25,7 +25,7 @@ const TONE: Record<string, string> = {
     "Com ESTA pessoa, seja mais gentil e acolhedora — encoraja, celebra o pequeno passo, cobra com leveza. Nunca ríspida.",
   equilibrada: "Com ESTA pessoa, mantenha o equilíbrio — sincera e firme, mas sem peso.",
   durona:
-    "Com ESTA pessoa, seja mais durona e direta — sem rodeio, cobra de verdade, aponta a folga na cara. Sem ser grossa, mas sem passar a mão na cabeça.",
+    'Com ESTA pessoa: seca e direta, sem UMA palavra de amaciante. Nada de "você consegue", nada de elogio, nada de "tá tudo bem". Se ela não fez, fala na cara que não fez — e que desculpa não entrega nada. Cobra como treinador que não aceita corpo mole: curto, ríspido, um pouco grosso até, sempre fechando no próximo passo concreto que ela TEM que fazer. O que ela não pode é te sentir de boa com ela falhando. Limite: ataca a folga e a desculpa, nunca a pessoa — sem xingamento, sem humilhar, sem mexer com inteligência ou caráter.',
 };
 
 const GOAL_GUARD = (goal: string) =>

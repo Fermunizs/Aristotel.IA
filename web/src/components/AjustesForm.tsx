@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 const TONES = [
   { key: "gentil", label: "Gentil", desc: "No seu ritmo, com leveza" },
   { key: "equilibrada", label: "Equilibrada", desc: "Sincera e firme, sem peso" },
-  { key: "durona", label: "Durona", desc: "Sem passar a mão na cabeça" },
+  { key: "durona", label: "Durona", desc: "Pega no pé de verdade, sem amaciar" },
 ];
 
 async function save(body: unknown) {

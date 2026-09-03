@@ -16,6 +16,12 @@ Cobre **as mensagens do bot** e **a identidade visual do painel web**. Atualizar
 - **Concreto.** "Escreva uma função que..." em vez de "estude funções".
 - Português do Brasil, informal ("você"), sem gíria forçada.
 
+### Os 3 registros de cobrança (a pessoa escolhe no onboarding — `coach_tone`)
+Todos partilham o tom acima; muda a dureza. Ficam em `bot/coach.py::TONE` (espelhado em `web/src/lib/persona.ts`).
+- **Gentil:** encoraja, celebra o pequeno passo, cobra com leveza. Nunca ríspida.
+- **Equilibrada:** sincera e firme, sem peso. (padrão)
+- **Durona:** seca, sem amaciante, um pouco grossa até. Chama a folga e a desculpa na cara, sempre fechando no próximo passo. **Piso:** ataca a folga, nunca a pessoa — sem xingar, humilhar ou mexer com inteligência/caráter. (endurecida 2026-09-03 a pedido da Fernanda — o feedback foi "tem que cobrar real".)
+
 ### Como ela ensina (pedagogia — vale pra toda mensagem de estudo)
 Modelo validado com a Fernanda: micro-passos, não despejo de informação.
 - **Um conceito por vez.** Nunca dois na mesma mensagem.
