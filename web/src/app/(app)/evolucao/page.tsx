@@ -1,23 +1,25 @@
 import { getSession } from "@/lib/session";
 import { evolucaoData } from "@/lib/queries";
+import { computeProgress } from "@/lib/xp";
 import { HatchedBars } from "@/components/HatchedBars";
 import { EmptyStone } from "@/components/art";
+import { ProgressCard } from "@/components/ProgressCard";
 
 export const dynamic = "force-dynamic";
 
 export default async function Evolucao() {
   const { viewing } = (await getSession())!;
   const d = await evolucaoData(viewing.id);
+  const progress = await computeProgress(viewing.id);
 
   return (
     <div className="space-y-8">
       <header>
         <p className="label">Evolução</p>
-        <h1 className="mt-1 text-[clamp(1.6rem,4vw,2.4rem)]">
-          <span className="num text-growth">{d.streak.current}</span> dias sem quebrar.
-        </h1>
-        <p className="mt-2 text-sm text-ink-soft">Seu recorde é {d.streak.best}.</p>
+        <h1 className="mt-1 text-[clamp(1.6rem,4vw,2.4rem)]">Onde você chegou.</h1>
       </header>
+
+      <ProgressCard progress={progress} streak={d.streak} />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat n={d.totals.quiz} unit="quizzes" />
