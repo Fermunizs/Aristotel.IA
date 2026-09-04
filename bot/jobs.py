@@ -6,7 +6,7 @@ import re
 
 from telegram.ext import ContextTypes
 
-from . import db, prompts, push, usage
+from . import db, prompts, push, usage, xp
 from .util import ask, ask_json, now_for, send_text
 
 log = logging.getLogger("aristotelia.jobs")
@@ -108,6 +108,9 @@ async def daily_learning_guide(context: ContextTypes.DEFAULT_TYPE) -> None:
     if topic:
         await db.add_task(user["id"], day, "trilha", topic["topic"], topic["goal"])
     await db.log_event(user["id"], "msg:guide", day)
+    lvl = await xp.sync_and_maybe_announce(user["id"], day)
+    if lvl:
+        await _deliver(context, user, chat, "Subiu de nível", lvl)
     if should_advance:
         _advance_day(plan)
         await db.update_plan_position(user["id"], plan["current"]["week"], plan["current"]["day"])

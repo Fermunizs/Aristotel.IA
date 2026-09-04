@@ -6,7 +6,7 @@ from datetime import timedelta
 
 from telegram.ext import ContextTypes
 
-from . import config, db, prompts
+from . import config, db, prompts, xp
 from .jobs import _ctx, _deliver
 from .util import ask, now_for
 
@@ -32,6 +32,12 @@ async def weekly_review(context: ContextTypes.DEFAULT_TYPE, *, force: bool = Fal
     goal = plan["goal"] if plan else None
     texto = await ask(prompts.persona(user["name"], goal, user["coach_tone"], user["coach_note"], light=True) + "\n\n" + prompts.WEEKLY_REVIEW,
                       f"Registros:\n{resumo}", label=True, temperature=0.7, max_tokens=450)
+    rows = await db.events_all(user["id"])
+    lvl = xp.level_for_xp(xp.xp_total(rows))
+    since_dt = (now_for(user) - timedelta(days=7)).date()
+    wk_rows = [r for r in rows if r["day"] >= since_dt]
+    wk_xp = xp.xp_total(wk_rows)
+    texto += f"\n\n📈 Nível {lvl} — {xp.stage_for_level(lvl)} · +{wk_xp} XP essa semana"
     await _deliver(context, user, chat, "Sua semana", texto)
 
 

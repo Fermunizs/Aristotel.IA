@@ -6,7 +6,7 @@ import logging
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from . import config, db, llm, onboarding, prompts, usage
+from . import config, db, llm, onboarding, prompts, usage, xp
 from .util import ask, ask_json, now_for, send_text
 
 CHAT_DAILY_CAP = 40  # mensagens de conversa livre por usuário por dia
@@ -296,11 +296,12 @@ async def _quiz2(update: Update, user, pending: dict, text: str) -> None:
         "Fecha dizendo que o próximo desafio prático é às 16h.",
         text, max_tokens=220,
     )
+    day = now_for(user).date()
     await db.set_pending(user["id"], None)
-    await db.log_event(user["id"], "quiz_reforco", now_for(user).date(),
-                       {"topico": pending.get("topico", "")})
+    await db.log_event(user["id"], "quiz_reforco", day, {"topico": pending.get("topico", "")})
     await db.push_history(user["id"], "assistant", resp)
-    await _reply(update, resp)
+    lvl = await xp.sync_and_maybe_announce(user["id"], day)
+    await _reply(update, f"{resp}\n\n{lvl}" if lvl else resp)
 
 
 async def _micro_q(update: Update, user, pending: dict, text: str) -> None:
@@ -340,7 +341,8 @@ async def _challenge(update: Update, user, pending: dict, text: str) -> None:
             text, history=hist, max_tokens=350,
         )
         await db.push_history(user["id"], "assistant", resp)
-        return await _reply(update, f"🛠️ {resp}")
+        lvl = await xp.sync_and_maybe_announce(user["id"], day)
+        return await _reply(update, f"🛠️ {resp}\n\n{lvl}" if lvl else f"🛠️ {resp}")
 
     # ainda no desafio: ajuda, sem marcar como feito
     resp = await ask(
@@ -365,7 +367,11 @@ async def _review(update: Update, user, text: str) -> None:
     await db.log_event(user["id"], "review", day, {"raw": text[:500]})
     await db.auto_complete(user["id"], day, "trilha")
     await _reply(update, card)
-    await _reply(update, f"🔥 Streak: {new_streak} dia(s).\n\n💡 Isso pode virar conteúdo? (sim / não)")
+    lvl = await xp.sync_and_maybe_announce(user["id"], day)
+    rodape = f"🔥 Streak: {new_streak} dia(s)."
+    if lvl:
+        rodape += f"\n{lvl}"
+    await _reply(update, f"{rodape}\n\n💡 Isso pode virar conteúdo? (sim / não)")
     await db.set_pending(user["id"], {"type": "content_confirm"})
 
 
