@@ -1,7 +1,9 @@
 import { getSession } from "@/lib/session";
 import { dashboardData } from "@/lib/queries";
+import { computeProgress } from "@/lib/xp";
 import Checklist from "@/components/Checklist";
 import { EmptyStone } from "@/components/art";
+import { LevelBar } from "@/components/LevelBar";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +33,7 @@ export default async function Hoje() {
   }
 
   const d = await dashboardData(viewing.id);
+  const progress = await computeProgress(viewing.id);
   const cur = d.plan?.weeks.find((w) => w.n === d.plan!.currentWeek);
   const today = cur?.days.find((x) => x.d === d.plan!.currentDay);
 
@@ -42,6 +45,8 @@ export default async function Hoje() {
           Bom te ver, {firstName(viewing.name)}.
         </h1>
       </header>
+
+      <LevelBar progress={progress} />
 
       <div className="grid grid-cols-3 gap-3">
         <Stat n={`${d.streak.current}`} unit="dias seguidos" tone="growth" />
