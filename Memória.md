@@ -782,4 +782,16 @@ Fernanda: a trilha precisa ser mais consultiva/específica e a IA "deve levar in
 
 **Testado na VM com "Higgsfield pra vídeo com IA" + contexto real:** perguntas de afinamento específicas, 4 semanas todas com passos concretos ("selecionar preset Cinematic Close-Up", "obturador 1/48s", "rotate 360° over 8s"), zero "vá ler". 1 semana truncou no 1º try, retry salvou.
 
-`py_compile` + `tsc` + `next build` OK. Bot + painel deployados e `active`. **Git ainda não pushado (esta leva).**
+`py_compile` + `tsc` + `next build` OK. Bot + painel deployados e `active`. Commits `bd0881e` etc., pushados.
+
+## 2026-09-04 — Gamificação v1: XP + níveis (executado via Subagent-Driven Development)
+
+Fernanda pediu ideias pra deixar o sistema mais atrativo/"vontade de assinar"; resposta: o gargalo real é os planos pagos venderem o que não existe (B15) + falta de prova, não feature nova — mas ela pediu gamificação especificamente. Brainstorm → spec (`docs/superpowers/specs/2026-09-04-gamificacao-xp-niveis-design.md`) → plano (`docs/superpowers/plans/2026-09-04-gamificacao-xp-niveis.md`, 7 tasks) → executado com subagente por task + revisão por task + review final, direto na `main` (consentimento explícito da Fernanda — sem worktree).
+
+**O que é:** XP **derivado da tabela `events`** — nada gravado, zero migration. `xp_total = Σ pontos(evento) + 10/dia engajado`, com tetos diários por categoria (evita farm). Nível = função pura do XP (`50·(L-1)·L` por nível). 8 estágios (Começando → Referência) em vez de número seco. Bot anexa 1 linha de level-up (`📈 Nível N — Estágio. Fecho.`) em `_review`/`_quiz2`/`_challenge`/guia da manhã, sem mensagem própria; marca "já anunciei" gravando um evento `xp:levelup` (sem storage novo). Painel: faixa de nível na home (`LevelBar`) + cartão de progresso na Evolução (`ProgressCard`, XP por fonte na semana, streak, feito pra printar).
+
+**Arquivos novos:** `bot/xp.py`, `scripts/check_xp.py`, `web/src/lib/xp.ts`, `web/src/components/LevelBar.tsx`, `web/src/components/ProgressCard.tsx`. Editados: `bot/db.py` (+`events_all`), `bot/handlers.py`/`jobs.py`/`weekly.py` (fiação), `web/src/app/(app)/page.tsx` + `evolucao/page.tsx`, `Design.md`/`Produto.md`/`Backlog.md`.
+
+**Achado real do processo de revisão (Task 4):** o espelho TypeScript da regra de XP de foco não truncava minutos fracionários nem replicava o comportamento de `int()` do Python pra minutos negativos — divergência numérica silenciosa entre bot e painel. Pego pelo reviewer, corrigido (`Math.trunc`), re-revisado, limpo.
+
+Commits: `3bccd3a`, `5076516` (Task 1-2, `bot/xp.py`), `d5551c7` (Task 3, fiação bot), `0df7766`+`964d087` (Task 4, `xp.ts` + fix), `b020c7a`+`db6c482` (Task 5-6, UI), `6aca122` (Task 7, docs). Todas revisadas (0 Critical/Important em aberto; alguns Minor deferidos — comentário faltando, imports não usados, transition CSS — sem impacto funcional). Bot e painel deployados e `active` a cada etapa relevante.
