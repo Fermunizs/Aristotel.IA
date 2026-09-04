@@ -85,7 +85,7 @@ const daysAgoISO = (n: number) => {
 export type Progress = {
   xp: number; level: number; stage: string;
   xpInLevel: number; xpForLevel: number; xpToNext: number;
-  bySource: { quiz: number; desafio: number; foco: number; constancia: number };
+  bySource: { quiz: number; desafio: number; foco: number; constancia: number; revisao: number };
 };
 
 export async function computeProgress(userId: string): Promise<Progress> {
@@ -119,6 +119,7 @@ export async function computeProgress(userId: string): Promise<Progress> {
       desafio: bucket(["desafio"]),
       foco: bucket(["foco"]),
       constancia: ENGAGED_DAY_XP * engagedWeek,
+      revisao: bucket(["review"]),
     },
   };
 }

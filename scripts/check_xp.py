@@ -103,6 +103,7 @@ def test_sync_and_maybe_announce():
     assert line and "Nível" in line, line
     assert state["logged"] and state["logged"][-1]["kind"] == "xp:levelup"
     lvl = state["logged"][-1]["payload"]["level"]
+    assert lvl == 3, lvl
 
     # chamar de novo sem novos eventos -> não reanuncia
     assert asyncio.run(xp.sync_and_maybe_announce("u", d)) is None

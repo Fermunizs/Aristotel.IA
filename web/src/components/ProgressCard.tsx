@@ -5,6 +5,7 @@ const SOURCES: { key: keyof Progress["bySource"]; label: string }[] = [
   { key: "desafio", label: "desafios" },
   { key: "foco", label: "foco" },
   { key: "constancia", label: "constância" },
+  { key: "revisao", label: "revisão" },
 ];
 
 export function ProgressCard({
