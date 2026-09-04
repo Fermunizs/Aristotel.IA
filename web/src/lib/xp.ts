@@ -23,7 +23,7 @@ export function pointsFor(kind: string, payload: unknown): number {
   if (kind === "quiz") return p.resultado === "acerto" ? 15 : 5;
   if (kind === "foco") {
     const m = Number(p.minutos ?? 0);
-    return Number.isFinite(m) && m > 0 ? Math.min(m, FOCO_CAP_MIN) : 0;
+    return Number.isFinite(m) ? Math.min(Math.trunc(m), FOCO_CAP_MIN) : 0;
   }
   return POINTS[kind] ?? 0;
 }
