@@ -75,8 +75,42 @@ def test_stages():
     print("ok  estágios + linha de level-up")
 
 
+def test_sync_and_maybe_announce():
+    import asyncio
+    from datetime import date
+
+    state = {"events": [], "logged": []}
+
+    async def fake_events_all(uid):
+        return list(state["events"])
+
+    async def fake_log_event(uid, kind, day, payload=None):
+        state["logged"].append({"kind": kind, "payload": payload or {}})
+        state["events"].append({"kind": kind, "day": day, "payload": payload or {}})
+
+    import types
+    xp_db = types.SimpleNamespace(events_all=fake_events_all, log_event=fake_log_event)
+    import bot
+    sys.modules["bot.db"] = xp_db  # o import lazy `from . import db` pega este
+
+    d = date(2026, 9, 1)
+    # 0 XP -> nível 1, nunca anunciado -> sem linha (nível 1 não "sobe")
+    assert asyncio.run(xp.sync_and_maybe_announce("u", d)) is None
+
+    # empurra pra ~nível 3 (>= 300 XP): 10 desafios (300) + dias -> passa de 300
+    state["events"] = [{"kind": "desafio", "day": date(2026, 8, i + 1), "payload": {}} for i in range(12)]
+    line = asyncio.run(xp.sync_and_maybe_announce("u", d))
+    assert line and "Nível" in line, line
+    assert state["logged"] and state["logged"][-1]["kind"] == "xp:levelup"
+    lvl = state["logged"][-1]["payload"]["level"]
+
+    # chamar de novo sem novos eventos -> não reanuncia
+    assert asyncio.run(xp.sync_and_maybe_announce("u", d)) is None
+    print(f"ok  sync_and_maybe_announce (anunciou nível {lvl} uma vez só)")
+
+
 if __name__ == "__main__":
     for fn in [test_curve_bounds, test_points_for, test_daily_caps_and_engaged_bonus,
-               test_empty, test_stages]:
+               test_empty, test_stages, test_sync_and_maybe_announce]:
         fn()
     print("\nTODOS OS CHECKS DE XP PASSARAM")

@@ -90,3 +90,22 @@ def stage_line(level: int) -> str:
 
 def level_up_line(level: int) -> str:
     return f"📈 Nível {level} — {stage_for_level(level)}. {stage_line(level)}"
+
+
+async def sync_and_maybe_announce(user_id, day) -> str | None:
+    """Se o usuário subiu de nível desde o último anúncio, grava o marcador
+    (evento xp:levelup) e devolve a linha pra anexar na mensagem que vai sair."""
+    from . import db  # import lazy: check_xp.py roda sem asyncpg
+
+    rows = await db.events_all(user_id)
+    xp_now = xp_total(rows)
+    level_now = level_for_xp(xp_now)
+    announced = max(
+        (r["payload"].get("level", 0) for r in rows
+         if r["kind"] == "xp:levelup" and isinstance(r["payload"], dict)),
+        default=0,
+    )
+    if level_now <= announced or level_now == 1:
+        return None
+    await db.log_event(user_id, "xp:levelup", day, {"level": level_now, "xp": xp_now})
+    return level_up_line(level_now)

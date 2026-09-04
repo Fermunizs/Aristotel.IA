@@ -320,6 +320,15 @@ async def events_since(user_id, since: date) -> list[asyncpg.Record]:
         )
 
 
+async def events_all(user_id) -> list[dict]:
+    """Todos os eventos do usuário (kind, payload desserializado, day) — pra cálculo de XP."""
+    async with pool().acquire() as con:
+        rows = await con.fetch(
+            "SELECT kind, payload, day FROM events WHERE user_id = $1 ORDER BY day", user_id
+        )
+    return [{"kind": r["kind"], "payload": _j(r["payload"]) or {}, "day": r["day"]} for r in rows]
+
+
 async def get_streak(user_id) -> asyncpg.Record:
     async with pool().acquire() as con:
         return await con.fetchrow(
