@@ -108,7 +108,8 @@ Legenda: **[MVP]** valida o produto · **[v2]** depois do primeiro sinal · **[d
 - **[MVP]** Dashboard: conceitos aprendidos · praticados · problemas resolvidos · minutos de foco · streak · conteúdos publicados.
 - **[MVP]** Gráfico de evolução ao longo do tempo.
 - **[MVP]** Card semanal (já existe) vira uma tela viva + "ponto forte / ponto fraco".
-- **[v2]** Skill tree com XP e níveis (gamificação sóbria).
+- **[feito 2026-09-04]** XP + níveis (estágios de domínio), derivados de `events`. Linha de level-up no bot + faixa/cartão no painel. Spec: `docs/superpowers/specs/2026-09-04-gamificacao-xp-niveis-design.md`.
+- **[v2]** Skill tree / mapa de domínio por área (estende a `LearningTree`); cartão de progresso como imagem; missões semanais.
 - **[depois]** Portfólio público: desafios concluídos viram um "build log" compartilhável.
 
 ### 6.6 Motor de lembretes (o "fora da curva" — Fase 2)

@@ -113,6 +113,9 @@ Hoje o Postgres roda num container (`arist-pg`); `dockerd` + `containerd` custam
 ### B19 · Higiene de schema + robustez de infra — `M` — refs F22, F24
 `push_history` já virou append atômico (F16 feito). Falta: processo único / VM única (F24) — aceitar o risco por ora, mas ter o restore documentado e testado (tem em `CLAUDE.md §6`). Revisar `pop_outbox` sem `FOR UPDATE SKIP LOCKED` se aparecer 2º consumidor.
 
+### B26 · Gamificação v2 — `M`
+Sobre a v1 (XP/níveis): mapa de domínio por área da trilha (estende `LearningTree` — quiz certo por tópico enche um nó), cartão de progresso exportado como **imagem PNG** pra compartilhar, missões semanais (a treinadora define 2-3 alvos, o card de domingo celebra). Ranking de turma / temporada = Fase 3 (plano pago).
+
 ---
 
 ## P4 — Cobrança
@@ -170,3 +173,4 @@ Hoje o quiz/desafio/review manda a notificação mas o `pending` só é consumid
 | B09 | Persona enxuta nos jobs de broadcast (`persona(light=True)`, ~260 tok/chamada) (`5d99828`) | 2026-09-03 |
 | — | `/start` explica o painel + tom "durona" endurecido (`2e0c00e`) | 2026-09-03 |
 | — | **Onboarding consultivo** — `ONB_DEEPEN` (2-3 perguntas adaptativas) + referência opcional + prompts de trilha exigindo especificidade + "entrega, não manda ler" na pedagogia. Robustez de JSON truncado (`_repair_truncated` stack-based). Testado com Higgsfield. | 2026-09-03 |
+| — | **Gamificação v1** — XP + níveis derivados de `events` (sem migration), linha de level-up no bot, faixa + cartão de progresso no painel. Spec `2026-09-04-gamificacao-xp-niveis-design`. | 2026-09-04 |

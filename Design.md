@@ -22,6 +22,25 @@ Todos partilham o tom acima; muda a dureza. Ficam em `bot/coach.py::TONE` (espel
 - **Equilibrada:** sincera e firme, sem peso. (padrão)
 - **Durona:** seca, sem amaciante, um pouco grossa até. Chama a folga e a desculpa na cara, sempre fechando no próximo passo. **Piso:** ataca a folga, nunca a pessoa — sem xingar, humilhar ou mexer com inteligência/caráter. (endurecida 2026-09-03 a pedido da Fernanda — o feedback foi "tem que cobrar real".)
 
+### Progressão / XP (gamificação sóbria — 2026-09-04)
+XP derivado da tabela `events` (spec `docs/superpowers/specs/2026-09-04-gamificacao-xp-niveis-design.md`). Nível = função pura do XP. **Estágios** (o título é o que importa, não o número):
+
+| Níveis | Estágio | Fecho da linha de level-up |
+|---|---|---|
+| 1–2 | Começando | Começou. |
+| 3–4 | Na trilha | Você tá andando. |
+| 5–6 | Em ritmo | O ritmo pegou. |
+| 7–9 | Consistente | Isso já é constância. |
+| 10–12 | Aprofundando | Tá ficando sério. |
+| 13–15 | Praticante | Você faz, não só estuda. |
+| 16–19 | Dominando | Pouca gente chega aqui. |
+| 20+ | Referência | Agora é você que serve de exemplo. |
+
+- **Linha de level-up:** `📈 Nível {N} — {estágio}. {fecho}` — 1 linha, verde-trilha, anexada a uma mensagem que já ia sair. Nunca mensagem própria no bot (exceto a rede de segurança do guia da manhã).
+- **Onde vive:** `bot/xp.py` + espelho `web/src/lib/xp.ts`. Os nomes de estágio e os fechos são **deste arquivo** — mudou aqui, muda nos dois módulos.
+- **No painel:** faixa no topo da home (`LevelBar`) + cartão de progresso na Evolução (`ProgressCard`), feito pra printar (verde = crescimento, hachura da marca, um marco do caminho).
+- **Rebalancear os pesos depois:** como o XP é derivado, mexer nos pesos **recalcula o histórico** — só ajustar **pra cima**, pra ninguém "descer de nível" num deploy.
+
 ### Como ela ensina (pedagogia — vale pra toda mensagem de estudo)
 Modelo validado com a Fernanda: micro-passos, não despejo de informação.
 - **Um conceito por vez.** Nunca dois na mesma mensagem.
